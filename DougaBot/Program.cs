@@ -3,9 +3,9 @@ using Discord.Interactions;
 using Discord.WebSocket;
 using DougaBot.Services;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Serilog;
 using Serilog.Events;
-using Microsoft.Extensions.Hosting;
 
 var host = Host.CreateDefaultBuilder()
     .ConfigureServices(
@@ -39,7 +39,7 @@ interactionService.Log += LogAsync;
 if (Convert.ToBoolean(Environment.GetEnvironmentVariable("REGISER_GLOBAL_COMMANDS")))
     socketClient.Ready += async () => await interactionService.RegisterCommandsGloballyAsync();
 
-await socketClient.LoginAsync(TokenType.Bot, Environment.GetEnvironmentVariable("VIDEO_BOT_TOKEN"));
+await socketClient.LoginAsync(TokenType.Bot, Environment.GetEnvironmentVariable("DOUGA_TOKEN"));
 await socketClient.StartAsync();
 await Task.Delay(-1);
 

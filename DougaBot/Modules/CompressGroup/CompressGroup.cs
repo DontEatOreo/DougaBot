@@ -5,7 +5,7 @@ using DougaBot.PreConditions;
 namespace DougaBot.Modules.CompressGroup;
 
 [RateLimit(60, RateLimitAttribute.RateLimitType.Guild), Group("compress", "Group of commands for compression")]
-public sealed partial class  CompressGroup : InteractionModuleBase<SocketInteractionContext>
+public sealed partial class CompressGroup : InteractionModuleBase<SocketInteractionContext>
 {
     private static readonly ConcurrentDictionary<ulong, SemaphoreSlim> QueueLocks = new();
 

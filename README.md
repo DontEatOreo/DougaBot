@@ -26,6 +26,9 @@ It utilizes **[FFmpeg](https://ffmpeg.org/)** to compress videos or audios and *
 
 ``/trim`` trim a video
 
+## Important
+### The bot token is stored in environment variable called ``DOUGA_TOKEN``
+
 ## Notes
 - Currently DougaBot will not download, compress, speed or trim playlists. (Instead it will only process the first video or the video that's selected in the playlist)
 - You can set environment variable ``USE_HARDWARE_ACCELERATION`` to true, to use hardware acceleration for video compression.

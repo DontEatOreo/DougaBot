@@ -167,25 +167,25 @@ public class InteractionHandler
             return;
         }
 
-        var socketGuildUser = (SocketGuildUser) arg.Author;
+        var socketGuildUser = (SocketGuildUser)arg.Author;
 
         switch (socketGuildUser.Guild.PremiumTier)
         {
             case PremiumTier.Tier1 or PremiumTier.None:
-            {
-                await UploadWebMVideo(arg, videoSize, 8, afterVideo);
-                break;
-            }
+                {
+                    await UploadWebMVideo(arg, videoSize, 8, afterVideo);
+                    break;
+                }
             case PremiumTier.Tier2:
-            {
-                await UploadWebMVideo(arg, videoSize, 50, afterVideo);
-                return;
-            }
+                {
+                    await UploadWebMVideo(arg, videoSize, 50, afterVideo);
+                    return;
+                }
             case PremiumTier.Tier3:
-            {
-                await UploadWebMVideo(arg, videoSize, 100, afterVideo);
-                break;
-            }
+                {
+                    await UploadWebMVideo(arg, videoSize, 100, afterVideo);
+                    break;
+                }
             default:
                 return;
         }
@@ -209,12 +209,15 @@ public class InteractionHandler
 
     private async Task HandleInteraction(SocketInteraction interaction)
     {
-        try {
+        try
+        {
             // Create an execution context that matches the generic type parameter of your InteractionModuleBase<T> modules
             var ctx = new SocketInteractionContext(_discordClient, interaction);
             await _commands.ExecuteCommandAsync(ctx, _services);
 
-        } catch (Exception ex) {
+        }
+        catch (Exception ex)
+        {
             Log.Error("[{Type}] [{Id}] {Message}", interaction.Type, interaction.Id, ex.Message);
 
             // If a Slash Command execution fails it is most likely that the original interaction acknowledgement will persist.

@@ -38,46 +38,46 @@ public sealed class RateLimitAttribute : PreconditionAttribute
         {
             // Check if the command has been used within the specified time frame
             case RateLimitType.Global when RateLimits.TryGetValue(0, out var value) && (now - value).TotalSeconds < Seconds:
-            {
-                var unixTime = FormatRateLimitMessage(now, value, Seconds);
-                return Task.FromResult(PreconditionResult.FromError(unixTime));
-            }
+                {
+                    var unixTime = FormatRateLimitMessage(now, value, Seconds);
+                    return Task.FromResult(PreconditionResult.FromError(unixTime));
+                }
             // Update the rate limit information for the global rate limit
             case RateLimitType.Global:
-            {
-                RateLimits[0] = now;
-                break;
-            }
+                {
+                    RateLimits[0] = now;
+                    break;
+                }
             case RateLimitType.User:
-            {
-                var userId = context.User.Id;
-
-                // Check if the user has used the command within the specified time frame
-                if (RateLimits.TryGetValue(userId, out var value) && (now - value).TotalSeconds < Seconds)
                 {
-                    var unixTime = FormatRateLimitMessage(now, value, Seconds);
-                    return Task.FromResult(PreconditionResult.FromError(unixTime));
-                }
+                    var userId = context.User.Id;
 
-                // Update the rate limit information for the user
-                RateLimits[userId] = now;
-                break;
-            }
+                    // Check if the user has used the command within the specified time frame
+                    if (RateLimits.TryGetValue(userId, out var value) && (now - value).TotalSeconds < Seconds)
+                    {
+                        var unixTime = FormatRateLimitMessage(now, value, Seconds);
+                        return Task.FromResult(PreconditionResult.FromError(unixTime));
+                    }
+
+                    // Update the rate limit information for the user
+                    RateLimits[userId] = now;
+                    break;
+                }
             case RateLimitType.Guild:
-            {
-                var guildId = context.Guild.Id;
-
-                // Check if the guild has used the command within the specified time frame
-                if (RateLimits.TryGetValue(guildId, out var value) && (now - value).TotalSeconds < Seconds)
                 {
-                    var unixTime = FormatRateLimitMessage(now, value, Seconds);
-                    return Task.FromResult(PreconditionResult.FromError(unixTime));
-                }
+                    var guildId = context.Guild.Id;
 
-                // Update the rate limit information for the guild
-                RateLimits[guildId] = now;
-                break;
-            }
+                    // Check if the guild has used the command within the specified time frame
+                    if (RateLimits.TryGetValue(guildId, out var value) && (now - value).TotalSeconds < Seconds)
+                    {
+                        var unixTime = FormatRateLimitMessage(now, value, Seconds);
+                        return Task.FromResult(PreconditionResult.FromError(unixTime));
+                    }
+
+                    // Update the rate limit information for the guild
+                    RateLimits[guildId] = now;
+                    break;
+                }
         }
 
         return Task.FromResult(PreconditionResult.FromSuccess());
@@ -88,7 +88,7 @@ public sealed class RateLimitAttribute : PreconditionAttribute
         // Calculate the remaining time
         var remaining = seconds - (now - value).TotalSeconds;
         // Convert remaining time to unix timestamp
-        var unixTimestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds() + (long) remaining;
+        var unixTimestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds() + (long)remaining;
 
         // Format the rate limit message with the remaining time
         var message = $"You are being rate limited. Try again <t:{unixTimestamp}:R>";
