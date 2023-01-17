@@ -37,7 +37,7 @@ It utilizes **[FFmpeg](https://ffmpeg.org/)** to compress videos or audios and *
 - Every video is downloaded to the default system temp directory.
 
 ## Running the bot
-- Install [FFmpeg](https://ffmpeg.org/) and [YT-DLP](htts://github.com/yt-dlp/yt-dlp)
+- Install [FFmpeg](https://ffmpeg.org/) and [YT-DLP](https://github.com/yt-dlp/yt-dlp)
 - Set environment variable ``DOUGA_TOKEN`` to your bot token
 - **(OPTIONAL)** Set environment variable ``IOS_COMPATIBILITY`` to true, to automatically convert webm to mp4 videos for iOS users in the background.
 - Download .NET 7.0 SDK from [here](https://dotnet.microsoft.com/download/dotnet/7.0)
