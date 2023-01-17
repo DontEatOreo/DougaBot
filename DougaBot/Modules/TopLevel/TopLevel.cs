@@ -23,6 +23,4 @@ public sealed partial class TopLevel : InteractionModuleBase<SocketInteractionCo
             GC.SuppressFinalize(this);
         }
     }
-
-    private static string RemuxVideo => "qt>mp4/mov>mp4/mkv>mp4/webm>mp4/opus>aac";
 }

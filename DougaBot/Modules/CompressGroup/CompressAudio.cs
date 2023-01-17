@@ -19,18 +19,20 @@ public sealed partial class CompressGroup
         {
             Log.Information("[{Source}] {Message}",
                 MethodBase.GetCurrentMethod()?.DeclaringType?.Name,
-                $"{Context.User.Username}#{Context.User.Discriminator} queued: {url}");
+                $"{Context.User.Username}#{Context.User.Discriminator} ({Context.User.Id}) locked: {url}");
             await CompressAudio(before, after, bitrate);
         }
         catch (Exception e)
         {
-            Log.Error("[{Source}] {Message}", MethodBase.GetCurrentMethod()?.DeclaringType?.Name, e.Message);
+            Log.Error("[{Source}] {Message}",
+                MethodBase.GetCurrentMethod()?.DeclaringType?.Name,
+                e.Message);
         }
         finally
         {
             Log.Information("[{Source}] {Message}",
                 MethodBase.GetCurrentMethod()?.DeclaringType?.Name,
-                $"{Context.User.Username}#{Context.User.Discriminator} released: {url}");
+                $"{Context.User.Username}#{Context.User.Discriminator} ({Context.User.Id}) released: {url}");
             userLock.Release();
         }
     }
@@ -39,7 +41,7 @@ public sealed partial class CompressGroup
     /// Compress Audio
     /// </summary>
     [SlashCommand("audio", "Compress Audio")]
-    public async Task CompressAudioCmd(string url,
+    public async Task SlashCompressAudioCommand(string url,
         [Choice("64k",64),
          Choice("96k",96),
          Choice("128k",128),
@@ -86,8 +88,13 @@ public sealed partial class CompressGroup
 
         if (audioStreams is null)
         {
-            await FollowupAsync("No audio streams found", ephemeral: true, options: Options);
             File.Delete(before);
+            await FollowupAsync("No audio streams found",
+                ephemeral: true,
+                options: Options);
+            Log.Warning("[{Source}] {File} has no audio streams found",
+                MethodBase.GetCurrentMethod()?.DeclaringType?.Name,
+                before);
             return;
         }
 
@@ -108,17 +115,13 @@ public sealed partial class CompressGroup
             await FollowupAsync("The Audio needs to be shorter than 2 hours",
                 ephemeral: true,
                 options: Options);
+            Log.Warning("[{Source}] {File} is longer than 2 hours",
+                MethodBase.GetCurrentMethod()?.DeclaringType?.Name,
+                after);
             return;
         }
 
         var audioSize = new FileInfo(after).Length / 1048576f;
-        if (audioSize > 100)
-        {
-            Log.Warning("[{Source}] [{File}] File is too large to embed",
-                MethodBase.GetCurrentMethod()?.DeclaringType?.Name,
-                audioSize);
-            return;
-        }
 
         await UploadFile(audioSize, after, Context);
     }

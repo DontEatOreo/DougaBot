@@ -35,7 +35,7 @@ public sealed partial class GlobalTasks
         OutputFolder = DownloadFolder
     };
 
-    public const string FormatSort = "codec:h264,res:720";
+    public const string FormatSort = "res:720";
 
     public static async Task UploadFile(float fileSize, string filePath, SocketInteractionContext interactionContext)
     {
@@ -113,7 +113,6 @@ public sealed partial class GlobalTasks
         }
 
         var runResult = await YoutubeDl.RunVideoDownload(url, overrideOptions: optionSet);
-
         if (runResult.Success)
             return runDataFetch.Data;
 

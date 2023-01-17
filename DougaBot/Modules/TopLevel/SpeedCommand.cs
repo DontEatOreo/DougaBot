@@ -62,7 +62,6 @@ public sealed partial class TopLevel
             {
                 FormatSort = FormatSort,
                 NoPlaylist = true,
-                RemuxVideo = RemuxVideo
             }, Context.Interaction);
         if (runDownload is null)
         {
@@ -71,12 +70,12 @@ public sealed partial class TopLevel
         }
 
         var folderUuid = Guid.NewGuid().ToString()[..4];
-        var beforeFile = Path.Combine(DownloadFolder, $"{runDownload.ID}.mp4");
+        var beforeFile = Path.Combine(DownloadFolder, $"{runDownload.ID}.{runDownload.Extension}");
         var afterFile = Path.Combine(DownloadFolder, folderUuid, $"{runDownload.ID}.mp4");
 
         var beforeStreamInfo = FFmpeg.GetMediaInfo(beforeFile).Result;
-        var videoStreams = beforeStreamInfo.VideoStreams.First();
-        var audioStreams = beforeStreamInfo.AudioStreams.First();
+        var videoStreams = beforeStreamInfo.VideoStreams.FirstOrDefault();
+        var audioStreams = beforeStreamInfo.AudioStreams.FirstOrDefault();
 
         /*
 		 * Template:

@@ -27,7 +27,7 @@ public class InteractionHandler
         {
             Log.Information("[{Source}] {Message}",
                 Assembly.GetExecutingAssembly().GetName().Name,
-                $"locked video: {attachment.Filename}");
+                $"{arg.Author.Username}#{arg.Author.Discriminator} ({arg.Author.Id}) locked: {attachment.Url}");
             await HandleWebM(arg, attachment);
         }
         catch (Exception e)
@@ -40,7 +40,7 @@ public class InteractionHandler
         {
             Log.Information("[{Source}] {Message}",
                 Assembly.GetExecutingAssembly().GetName().Name,
-                $"released video: {attachment.Filename}");
+                $"{arg.Author.Username}#{arg.Author.Discriminator} ({arg.Author.Id}) unlocked: {attachment.Url}");
             VideoQueueLock.Release();
         }
     }
@@ -105,15 +105,15 @@ public class InteractionHandler
 
         if (File.Exists(afterVideo))
         {
-            Log.Information("[{Source}] File already exists: {File}",
+            Log.Information("[{Source}] {File} already exists",
                 MethodBase.GetCurrentMethod()?.DeclaringType?.Name,
                 afterVideo);
             return;
         }
 
         var mediaInfo = await FFmpeg.GetMediaInfo(beforeVideo);
-        var videoStream = mediaInfo.VideoStreams.First();
-        var audioStream = mediaInfo.AudioStreams.First();
+        var videoStream = mediaInfo.VideoStreams.FirstOrDefault();
+        var audioStream = mediaInfo.AudioStreams.FirstOrDefault();
 
         if (videoStream is null)
         {
@@ -126,10 +126,9 @@ public class InteractionHandler
 
         if (videoStream.Duration > TimeSpan.FromMinutes(3))
         {
-            Log.Warning("[{Source}] File is too long: {File}",
+            Log.Warning("[{Source}] {File} is too long:",
                 MethodBase.GetCurrentMethod()?.DeclaringType?.Name,
                 beforeVideo);
-            File.Delete(beforeVideo);
             return;
         }
 
@@ -161,7 +160,7 @@ public class InteractionHandler
         var videoSize = new FileInfo(afterVideo).Length / 1048576f;
         if (videoSize > 100)
         {
-            Log.Warning("[{Source}] [{File}] File is too large to embed",
+            Log.Warning("[{Source}] {File} File is too large to embed",
                 MethodBase.GetCurrentMethod()?.DeclaringType?.Name,
                 afterVideo);
             return;

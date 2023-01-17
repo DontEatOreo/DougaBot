@@ -1,6 +1,8 @@
+using System.Reflection;
 using Discord;
 using Discord.Interactions;
 using DougaBot.PreConditions;
+using Serilog;
 using YoutubeDLSharp.Options;
 using static DougaBot.GlobalTasks;
 
@@ -27,7 +29,9 @@ public sealed partial class DownloadGroup
             {
                 if (!attachment.ContentType.StartsWith("video"))
                 {
-                    await FollowupAsync("Invalid file type", options: Options);
+                    await FollowupAsync("Invalid file type",
+                        ephemeral: true,
+                        options: Options);
                     return;
                 }
 
@@ -40,7 +44,9 @@ public sealed partial class DownloadGroup
 
             if (extractUrl is null)
             {
-                await FollowupAsync("No URL found", options: Options);
+                await FollowupAsync("No URL found",
+                    ephemeral: true,
+                    options: Options);
                 return;
             }
 
@@ -58,8 +64,7 @@ public sealed partial class DownloadGroup
             new OptionSet
             {
                 FormatSort = FormatSort,
-                NoPlaylist = true,
-                RemuxVideo = RemuxVideo
+                NoPlaylist = true
             }, Context.Interaction);
 
         if (runResult is null)
@@ -68,13 +73,18 @@ public sealed partial class DownloadGroup
             return;
         }
 
-        var videoPath = Path.Combine(DownloadFolder, $"{runResult.ID}.mp4");
+        var videoPath = Path.Combine(DownloadFolder, $"{runResult.ID}.{runResult.Extension}");
         var videoSize = new FileInfo(videoPath).Length / 1048576f;
 
         if (videoSize > 1024)
         {
             File.Delete(videoPath);
-            await FollowupAsync("Video is too big.\nThe video needs to be smaller than 1GB", ephemeral: true, options: Options);
+            await FollowupAsync("Video is too big.\nThe video needs to be smaller than 1GB",
+                ephemeral: true,
+                options: Options);
+            Log.Warning("[{Source}] {File} is too big",
+                MethodBase.GetCurrentMethod()?.Name,
+                runResult.ID);
             return;
         }
 

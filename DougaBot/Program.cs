@@ -13,7 +13,8 @@ var host = Host.CreateDefaultBuilder()
         {
             services.AddSingleton(_ => new DiscordSocketClient(new DiscordSocketConfig
             {
-                GatewayIntents = GatewayIntents.AllUnprivileged & ~GatewayIntents.GuildScheduledEvents & ~GatewayIntents.GuildInvites
+                GatewayIntents = GatewayIntents.All & ~GatewayIntents.GuildScheduledEvents &
+                    ~GatewayIntents.GuildInvites & ~GatewayIntents.GuildPresences
             }));
             services.AddSingleton(x => new InteractionService(x.GetRequiredService<DiscordSocketClient>()));
             services.AddSingleton<InteractionHandler>();

@@ -21,19 +21,21 @@ public sealed partial class CompressGroup
             Log.Information(
                 "[{Source}] {Message}",
                 MethodBase.GetCurrentMethod()?.DeclaringType?.Name,
-                $"{Context.User.Username}#{Context.User.Discriminator} queued: {url}");
+                $"{Context.User.Username}#{Context.User.Discriminator} ({Context.User.Id}) locked: {url}");
             await CompressVideo(before, after, resolution, resolutionChange);
         }
         catch (Exception e)
         {
-            Log.Error(e, "[{Source}] {Message}", MethodBase.GetCurrentMethod()?.DeclaringType?.Name, e.Message);
+            Log.Error(e, "[{Source}] {Message}",
+                MethodBase.GetCurrentMethod()?.DeclaringType?.Name,
+                e.Message);
         }
         finally
         {
             Log.Information(
                 "[{Source}] {Message}",
                 MethodBase.GetCurrentMethod()?.DeclaringType?.Name,
-                $"{Context.User.Username}#{Context.User.Discriminator} finished: {url}");
+                $"{Context.User.Username}#{Context.User.Discriminator} ({Context.User.Id}) finished: {url}");
             userLock.Release();
         }
     }
@@ -64,7 +66,7 @@ public sealed partial class CompressGroup
             {
                 FormatSort = FormatSort,
                 NoPlaylist = true,
-                RemuxVideo = RemuxVideo
+                // RemuxVideo = RemuxVideo
             }, Context.Interaction);
 
         if (runResult is null)
@@ -74,7 +76,7 @@ public sealed partial class CompressGroup
         }
 
         var folderUuid = Guid.NewGuid().ToString()[..4];
-        var before = Path.Combine(DownloadFolder, $"{runResult.ID}.mp4");
+        var before = Path.Combine(DownloadFolder, $"{runResult.ID}.{runResult.Extension}");
         var after = Path.Combine(DownloadFolder, folderUuid, $"{runResult.ID}.mp4");
 
         // get video duration of beforeVideo
@@ -94,13 +96,18 @@ public sealed partial class CompressGroup
     private async Task CompressVideo(string before, string after, string? resolution, bool resolutionChange)
     {
         var mediaInfo = await FFmpeg.GetMediaInfo(before);
-        var videoStream = mediaInfo.VideoStreams.First();
-        var audioStream = mediaInfo.AudioStreams.First();
+        var videoStream = mediaInfo.VideoStreams.FirstOrDefault();
+        var audioStream = mediaInfo.AudioStreams.FirstOrDefault();
 
         if (videoStream is null)
         {
-            await FollowupAsync("Could not find video stream", ephemeral: true, options: Options);
             File.Delete(before);
+            await FollowupAsync("Could not find video stream",
+                ephemeral: true,
+                options: Options);
+            Log.Warning("[{Source}] {File} has no video streams found",
+                MethodBase.GetCurrentMethod()?.DeclaringType?.Name,
+                before);
             return;
         }
 
@@ -168,9 +175,8 @@ public sealed partial class CompressGroup
             outputHeight = 720;
         }
 
-        // set resolution
-        videoStream.SetSize(outputWidth, outputHeight);
-        // set video codec to h264
+        if (outputHeight > 0)
+            videoStream.SetSize(outputWidth, outputHeight);
         videoStream.SetCodec(VideoCodec.h264);
 
         // Compress Video
@@ -195,18 +201,7 @@ public sealed partial class CompressGroup
         }
 
         await conversion.Start();
-
-        // Get File Size in MiB
         var videoSize = new FileInfo(after).Length / 1048576f;
-
-        if (videoSize > 100)
-        {
-            Log.Warning("[{Source}] [{File}] File is too large to embed",
-                MethodBase.GetCurrentMethod()?.DeclaringType?.Name,
-                videoSize);
-            return;
-        }
-
         await UploadFile(videoSize, after, Context);
     }
 }

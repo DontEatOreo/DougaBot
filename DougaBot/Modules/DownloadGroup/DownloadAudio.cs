@@ -1,5 +1,7 @@
+using System.Reflection;
 using Discord;
 using DougaBot.PreConditions;
+using Serilog;
 using YoutubeDLSharp.Options;
 using static DougaBot.GlobalTasks;
 
@@ -25,7 +27,9 @@ public sealed partial class DownloadGroup
                 if (!attachment.ContentType.StartsWith("audio") ||
                    !attachment.ContentType.StartsWith("video"))
                 {
-                    await FollowupAsync("Invalid file type", options: Options);
+                    await FollowupAsync("Invalid file type",
+                        ephemeral: true,
+                        options: Options);
                     return;
                 }
 
@@ -37,7 +41,9 @@ public sealed partial class DownloadGroup
             var extractUrl = await ExtractUrl(message.Content, Context.Interaction);
             if (extractUrl is null)
             {
-                await FollowupAsync("No URL found", options: Options);
+                await FollowupAsync("No URL found",
+                    ephemeral: true,
+                    options: Options);
                 return;
             }
 
@@ -47,7 +53,7 @@ public sealed partial class DownloadGroup
 
     private async Task DownloadAudio(string url)
     {
-        var runDownload = await RunDownload(url,
+        var runResult = await RunDownload(url,
             TimeSpan.FromHours(2),
             "Audio is too long.\nThe audio needs to be shorter than 2 hours",
             "Could not fetch data",
@@ -56,22 +62,27 @@ public sealed partial class DownloadGroup
             {
                 ExtractAudio = true,
                 AudioFormat = AudioConversionFormat.M4a,
-                NoPlaylist = true,
+                NoPlaylist = true
             }, Context.Interaction);
 
-        if (runDownload is null)
+        if (runResult is null)
         {
             RateLimitAttribute.ClearRateLimit(Context.User.Id);
             return;
         }
 
-        var audioPath = Path.Combine(DownloadFolder, $"{runDownload.ID}.m4a");
+        var audioPath = Path.Combine(DownloadFolder, $"{runResult.ID}.m4a");
         var audioSize = new FileInfo(audioPath).Length / 1048576f;
 
         if (audioSize > 1024)
         {
             File.Delete(audioPath);
-            await FollowupAsync("Audio is too big.\nThe audio needs to be smaller than 1GB", ephemeral: true, options: Options);
+            await FollowupAsync("Audio is too big.\nThe audio needs to be smaller than 1GB",
+                ephemeral: true,
+                options: Options);
+            Log.Warning("[{Source}] {File} is too big",
+                MethodBase.GetCurrentMethod()?.Name,
+                runResult.ID);
             return;
         }
 

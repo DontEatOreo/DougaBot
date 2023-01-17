@@ -9,10 +9,6 @@ public sealed partial class CompressGroup : InteractionModuleBase<SocketInteract
 {
     private static readonly ConcurrentDictionary<ulong, SemaphoreSlim> QueueLocks = new();
 
-    private static readonly RateLimitAttribute RateLimitAttribute = new();
-
-    private static string RemuxVideo => "qt>mp4/mov>mp4/mkv>mp4/webm>mp4/opus>aac";
-
     public class QueueLock : IDisposable
     {
         private readonly SemaphoreSlim _queueLock;

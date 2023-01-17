@@ -10,7 +10,7 @@ namespace DougaBot.Modules.TopLevel;
 
 public sealed partial class TopLevel
 {
-    [GeneratedRegex(@"^(?:\d{2}:)?(?:\d{2}:)?(\d{2})(?:\.(\d{1,3}))?$")]
+    [GeneratedRegex(@"^(?:\d{1,2}:)?(?:\d{1,2}:)?(\d{1,2})(?:\.(\d{1,3}))?$")]
     private static partial Regex TrimTimeRegex();
 
     private async Task TrimQueueHandler(string url, string startTime, string endTime)
@@ -124,7 +124,6 @@ public sealed partial class TopLevel
                 FormatSort = FormatSort,
                 DownloadSections = $"*{startTime}-{endTime}",
                 ForceKeyframesAtCuts = true,
-                RemuxVideo = RemuxVideo,
                 NoPlaylist = true,
                 Output = Path.Combine(DownloadFolder, folderUuid, "%(id)s.%(ext)s")
             }, Context.Interaction);
@@ -135,16 +134,9 @@ public sealed partial class TopLevel
             return;
         }
 
-        var trimFile = Path.Combine(DownloadFolder, folderUuid, $"{runDownload.ID}.mp4");
+        var trimFile = Path.Combine(DownloadFolder, folderUuid, $"{runDownload.ID}.{runDownload.Extension}");
 
         var fileSize = new FileInfo(trimFile).Length / 1048576f;
-        if (fileSize > 100)
-        {
-            Log.Warning("[{Source}] [{File}] File is too large to embed",
-                MethodBase.GetCurrentMethod()?.DeclaringType?.Name,
-                fileSize);
-            return;
-        }
 
         await UploadFile(fileSize, trimFile, Context);
     }
