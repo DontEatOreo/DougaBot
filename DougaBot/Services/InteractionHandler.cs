@@ -167,37 +167,13 @@ public class InteractionHandler
         }
 
         var socketGuildUser = (SocketGuildUser)arg.Author;
-
-        switch (socketGuildUser.Guild.PremiumTier)
+        var maxFileSize = MaxFileSizes[socketGuildUser.Guild.PremiumTier];
+        if (videoSize <= maxFileSize)
         {
-            case PremiumTier.Tier1 or PremiumTier.None:
-                {
-                    await UploadWebMVideo(arg, videoSize, 8, afterVideo);
-                    break;
-                }
-            case PremiumTier.Tier2:
-                {
-                    await UploadWebMVideo(arg, videoSize, 50, afterVideo);
-                    return;
-                }
-            case PremiumTier.Tier3:
-                {
-                    await UploadWebMVideo(arg, videoSize, 100, afterVideo);
-                    break;
-                }
-            default:
-                return;
-        }
-    }
-
-    private static async Task UploadWebMVideo(SocketMessage arg, float videoSize, int maxSize, string afterVideo)
-    {
-        if (videoSize <= maxSize)
             await arg.Channel.SendFileAsync(afterVideo,
                 messageReference: new MessageReference(arg.Id,
                     failIfNotExists: false));
-        else
-            File.Delete(afterVideo);
+        }
     }
 
     private static async Task SlashCommandExecuted(SlashCommandInfo arg1, IInteractionContext arg2, IResult arg3)

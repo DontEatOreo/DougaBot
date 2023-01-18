@@ -35,25 +35,21 @@ public sealed partial class GlobalTasks
         OutputFolder = DownloadFolder
     };
 
+    public static readonly Dictionary<PremiumTier, float> MaxFileSizes = new()
+    {
+        { PremiumTier.Tier1, 8 },
+        { PremiumTier.Tier2, 50 },
+        { PremiumTier.Tier3, 100 },
+        { PremiumTier.None, 8 }
+    };
+
     public const string FormatSort = "res:720";
 
     public static async Task UploadFile(float fileSize, string filePath, SocketInteractionContext interactionContext)
     {
-        if (interactionContext.Guild.PremiumTier is PremiumTier.Tier1 or PremiumTier.None)
-        {
-            if (fileSize <= 8)
-                await interactionContext.Interaction.FollowupWithFileAsync(filePath, options: Options);
-        }
-        else if (interactionContext.Guild.PremiumTier is PremiumTier.Tier2)
-        {
-            if (fileSize <= 50)
-                await interactionContext.Interaction.FollowupWithFileAsync(filePath, options: Options);
-        }
-        else if (interactionContext.Guild.PremiumTier is PremiumTier.Tier3)
-        {
-            if (fileSize <= 100)
-                await interactionContext.Interaction.FollowupWithFileAsync(filePath, options: Options);
-        }
+        var maxFileSize = MaxFileSizes[interactionContext.Guild.PremiumTier];
+        if (fileSize <= maxFileSize)
+            await interactionContext.Interaction.FollowupWithFileAsync(filePath, options: Options);
         else
         {
             await using var fileStream = File.OpenRead(filePath);
