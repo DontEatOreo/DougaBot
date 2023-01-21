@@ -19,7 +19,7 @@ var host = Host.CreateDefaultBuilder()
             }));
             services.AddSingleton(x => new InteractionService(x.GetRequiredService<DiscordSocketClient>()));
             services.AddSingleton<InteractionHandler>();
-            services.AddSingleton(_ => new AsyncKeyedLocker<string>(o => {
+            services.AddSingleton(new AsyncKeyedLocker<string>(o => {
                 o.PoolSize = 20;
                 o.PoolInitialFill = 1;
             }));
