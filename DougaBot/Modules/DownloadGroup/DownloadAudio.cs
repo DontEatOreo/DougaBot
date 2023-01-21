@@ -1,5 +1,6 @@
 using System.Reflection;
 using Discord;
+using Discord.Interactions;
 using DougaBot.PreConditions;
 using Serilog;
 using YoutubeDLSharp.Options;
@@ -12,6 +13,7 @@ public sealed partial class DownloadGroup
     /// <summary>
     /// Download Audio
     /// </summary>
+    [SlashCommand("audio", "Download Audio")]
     public async Task SlashCompressAudioCommand(string url)
         => await DeferAsync(options: Options)
             .ContinueWith(async _ => await DownloadAudio(url));

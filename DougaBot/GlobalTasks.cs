@@ -8,11 +8,10 @@ using YoutubeDLSharp.Options;
 
 namespace DougaBot;
 
-// ReSharper disable once ClassNeverInstantiated.Global
-public sealed partial class GlobalTasks
+public static partial class GlobalTasks
 {
     [GeneratedRegex("https?:\\/\\/[^\\s]+")]
-    private static partial Regex PartialHttp();
+    private static partial Regex HttpRegex();
 
     private static readonly HttpClient HttpClient = new();
 
@@ -64,9 +63,9 @@ public sealed partial class GlobalTasks
             await interactionContext.Interaction.FollowupAsync("The download link will **EXPIRE in 24 hours.**",
                 options: Options,
                 components: new ComponentBuilder().WithButton("Download",
-                    style: ButtonStyle.Link,
-                    emote: new Emoji("🔗"),
-                    url: fileLink)
+                        style: ButtonStyle.Link,
+                        emote: new Emoji("🔗"),
+                        url: fileLink)
                     .Build());
         }
     }
@@ -76,7 +75,7 @@ public sealed partial class GlobalTasks
         if (message is null)
             return null;
 
-        var matches = PartialHttp().Matches(message);
+        var matches = HttpRegex().Matches(message);
         if (matches.Count <= 0)
             return null;
         var urlString = matches.First().Value;
@@ -93,7 +92,8 @@ public sealed partial class GlobalTasks
         string durationErrorMessage,
         string dataFetchErrorMessage,
         string downloadErrorMessage,
-        OptionSet optionSet, SocketInteraction interaction)
+        OptionSet optionSet,
+        SocketInteraction interaction)
     {
         var runDataFetch = await YoutubeDl.RunVideoDataFetch(url);
         if (!runDataFetch.Success)

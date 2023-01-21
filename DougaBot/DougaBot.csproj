@@ -8,10 +8,11 @@
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
         <PackageProjectUrl>https://github.com/DontEatOreo/DougaBot</PackageProjectUrl>
         <Authors>DontEatOreo</Authors>
-        <Version>1.0.2</Version>
+        <Version>1.1.0</Version>
     </PropertyGroup>
 
     <ItemGroup>
+      <PackageReference Include="AsyncKeyedLock" Version="6.0.5" />
       <PackageReference Include="Discord.Net.Core" Version="3.9.0" />
       <PackageReference Include="Discord.Net.Interactions" Version="3.9.0" />
       <PackageReference Include="Discord.Net.WebSocket" Version="3.9.0" />

@@ -11,35 +11,6 @@ namespace DougaBot.Modules.CompressGroup;
 
 public sealed partial class CompressGroup
 {
-    private async Task VideoQueueHandler(string url, string before, string after, string? resolution, bool resolutionChange)
-    {
-        var userLock = QueueLocks.GetOrAdd(Context.User.Id, _ => new SemaphoreSlim(1, 1));
-
-        await userLock.WaitAsync();
-        try
-        {
-            Log.Information(
-                "[{Source}] {Message}",
-                MethodBase.GetCurrentMethod()?.DeclaringType?.Name,
-                $"{Context.User.Username}#{Context.User.Discriminator} ({Context.User.Id}) locked: {url}");
-            await CompressVideo(before, after, resolution, resolutionChange);
-        }
-        catch (Exception e)
-        {
-            Log.Error(e, "[{Source}] {Message}",
-                MethodBase.GetCurrentMethod()?.DeclaringType?.Name,
-                e.Message);
-        }
-        finally
-        {
-            Log.Information(
-                "[{Source}] {Message}",
-                MethodBase.GetCurrentMethod()?.DeclaringType?.Name,
-                $"{Context.User.Username}#{Context.User.Discriminator} ({Context.User.Id}) finished: {url}");
-            userLock.Release();
-        }
-    }
-
     /// <summary>
     /// Compress a video
     /// </summary>
@@ -48,6 +19,7 @@ public sealed partial class CompressGroup
         [Choice("144p", "144p"),
          Choice("240p", "240p"),
          Choice("360p", "360p"),
+         Choice("480p", "480p"),
          Choice("720p", "720p")]
         string? resolution = default)
         => await DeferAsync(options: Options)
@@ -55,8 +27,7 @@ public sealed partial class CompressGroup
 
     private async Task DownloadVideo(string url, string? resolution)
     {
-        // if resolution is empty set resolutionChange then false
-        var resolutionChange = !string.IsNullOrEmpty(resolution);
+        var resolutionChange = resolution is not null;
 
         var runResult = await RunDownload(url, TimeSpan.FromMinutes(4),
             "Video is too long.\nThe video needs to be shorter than 4 minutes",
@@ -65,8 +36,7 @@ public sealed partial class CompressGroup
             new OptionSet
             {
                 FormatSort = FormatSort,
-                NoPlaylist = true,
-                // RemuxVideo = RemuxVideo
+                NoPlaylist = true
             }, Context.Interaction);
 
         if (runResult is null)
@@ -79,10 +49,9 @@ public sealed partial class CompressGroup
         var before = Path.Combine(DownloadFolder, $"{runResult.ID}.{runResult.Extension}");
         var after = Path.Combine(DownloadFolder, folderUuid, $"{runResult.ID}.mp4");
 
-        // get video duration of beforeVideo
-        var beforeDuration = FFmpeg.GetMediaInfo(before).Result.Duration;
+        var beforeDuration = await FFmpeg.GetMediaInfo(before);
 
-        if (beforeDuration > TimeSpan.FromMinutes(4))
+        if (beforeDuration.Duration > TimeSpan.FromMinutes(4))
         {
             await FollowupAsync("Video is too long.\nThe video needs to be shorter than 4 minutes", ephemeral: true,
                 options: Options);
@@ -90,7 +59,8 @@ public sealed partial class CompressGroup
             return;
         }
 
-        await VideoQueueHandler(url, before, after, resolution, resolutionChange);
+        VideoCompressionParams videoParams = new() { Resolution = resolution, ResolutionChange = resolutionChange };
+        await CompressionQueueHandler(url, before, after, CompressionType.Video, videoParams);
     }
 
     private async Task CompressVideo(string before, string after, string? resolution, bool resolutionChange)
@@ -201,6 +171,7 @@ public sealed partial class CompressGroup
         }
 
         await conversion.Start();
+
         var videoSize = new FileInfo(after).Length / 1048576f;
         await UploadFile(videoSize, after, Context);
     }

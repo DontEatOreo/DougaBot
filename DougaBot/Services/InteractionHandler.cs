@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Reflection;
+using AsyncKeyedLock;
 using Discord;
 using Discord.Interactions;
 using Discord.WebSocket;
@@ -14,43 +15,37 @@ public class InteractionHandler
     private readonly DiscordSocketClient _discordClient;
     private readonly InteractionService _commands;
     private readonly IServiceProvider _services;
+    private readonly AsyncKeyedLocker<string> _asyncKeyedLocker;
 
     private static readonly bool IosCompatibility = Convert.ToBoolean(Environment.GetEnvironmentVariable("IOS_COMPATIBILITY"));
 
-    private static readonly SemaphoreSlim VideoQueueLock = new(1, 1);
+    private const string WebMQueueKey = "WebMQueueKey";
 
-    private static async Task VideoQueueHandler(SocketMessage arg, Attachment attachment)
+    private async Task VideoQueueHandler(SocketMessage message, List<Attachment> attachments)
     {
-        await VideoQueueLock.WaitAsync();
-
-        try
+        _asyncKeyedLocker.GetOrAdd(WebMQueueKey);
+        using (await _asyncKeyedLocker.LockAsync(WebMQueueKey))
         {
-            Log.Information("[{Source}] {Message}",
-                Assembly.GetExecutingAssembly().GetName().Name,
-                $"{arg.Author.Username}#{arg.Author.Discriminator} ({arg.Author.Id}) locked: {attachment.Url}");
-            await HandleWebM(arg, attachment);
-        }
-        catch (Exception e)
-        {
-            Log.Error("[{Source}] {Message}",
-                Assembly.GetExecutingAssembly().GetName().Name,
-                e.Message);
-        }
-        finally
-        {
-            Log.Information("[{Source}] {Message}",
-                Assembly.GetExecutingAssembly().GetName().Name,
-                $"{arg.Author.Username}#{arg.Author.Discriminator} ({arg.Author.Id}) unlocked: {attachment.Url}");
-            VideoQueueLock.Release();
+            foreach (var attachment in attachments)
+            {
+                Log.Information("[{Source}] {Message}",
+                    MethodBase.GetCurrentMethod()?.DeclaringType?.Name,
+                    $"{message.Author.Username}#{message.Author.Discriminator} has locked: {attachment.Url}");
+                await HandleWebM(message, attachment);
+                Log.Information("[{Source}] {Message}",
+                    MethodBase.GetCurrentMethod()?.DeclaringType?.Name,
+                    $"{message.Author.Username}#{message.Author.Discriminator} has unlocked: {attachment.Url}");
+            }
         }
     }
 
     // Using constructor injection
-    public InteractionHandler(DiscordSocketClient discordClient, InteractionService commands, IServiceProvider services)
+    public InteractionHandler(DiscordSocketClient discordClient, InteractionService commands, IServiceProvider services, AsyncKeyedLocker<string> asyncKeyedLocker)
     {
         _discordClient = discordClient;
         _commands = commands;
         _services = services;
+        _asyncKeyedLocker = asyncKeyedLocker;
     }
 
     public async Task InitializeAsync()
@@ -66,27 +61,31 @@ public class InteractionHandler
         _commands.SlashCommandExecuted += SlashCommandExecuted;
     }
 
-    private Task HandleMessage(SocketMessage arg)
+    private Task HandleMessage(SocketMessage message)
     {
         // check if it's a bot
-        if (arg.Author.IsBot)
+        if (message.Author.IsBot)
             return Task.CompletedTask;
 
         // Convert VP9 (WebM) videos to H264 (MP4)
         if (!IosCompatibility)
             return Task.CompletedTask;
-        foreach (var attachment in arg.Attachments.Where(x => x.Filename.EndsWith(".webm")))
-            _ = VideoQueueHandler(arg, attachment);
+
+        var attachments = message.Attachments
+            .Where(x => x.ContentType is "video/webm")
+            .ToList();
+
+        if (attachments.Count > 0)
+            _ = VideoQueueHandler(message, attachments);
 
         return Task.CompletedTask;
     }
-
     /// <summary>
     ///  This purely exist because iOS doesn't support WebM.
     /// Converts VP9 (Webm) videos to H264 (MP4) automatically in the background.
     /// </summary>
     // ReSharper disable once SuggestBaseTypeForParameter
-    private static async Task HandleWebM(SocketMessage arg, Attachment attachment)
+    private static async Task HandleWebM(SocketMessage message, Attachment attachment)
     {
         var videoFetch = await YoutubeDl.RunVideoDataFetch(attachment.Url);
         if (!videoFetch.Success)
@@ -166,12 +165,12 @@ public class InteractionHandler
             return;
         }
 
-        var socketGuildUser = (SocketGuildUser)arg.Author;
+        var socketGuildUser = (SocketGuildUser)message.Author;
         var maxFileSize = MaxFileSizes[socketGuildUser.Guild.PremiumTier];
         if (videoSize <= maxFileSize)
         {
-            await arg.Channel.SendFileAsync(afterVideo,
-                messageReference: new MessageReference(arg.Id,
+            await message.Channel.SendFileAsync(afterVideo,
+                messageReference: new MessageReference(message.Id,
                     failIfNotExists: false));
         }
     }

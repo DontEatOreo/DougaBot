@@ -1,4 +1,5 @@
-﻿using Discord;
+﻿using AsyncKeyedLock;
+using Discord;
 using Discord.Interactions;
 using Discord.WebSocket;
 using DougaBot.Services;
@@ -18,7 +19,7 @@ var host = Host.CreateDefaultBuilder()
             }));
             services.AddSingleton(x => new InteractionService(x.GetRequiredService<DiscordSocketClient>()));
             services.AddSingleton<InteractionHandler>();
-            services.AddSingleton(_ => new InteractionServiceConfig { LogLevel = LogSeverity.Verbose, UseCompiledLambda = true });
+            services.AddSingleton(_ => new AsyncKeyedLocker<string>(o => o.PoolSize = 1));
         }
     )
     .UseSerilog((hostingContext, _, loggerConfiguration) => loggerConfiguration
