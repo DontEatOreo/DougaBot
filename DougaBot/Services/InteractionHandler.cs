@@ -23,8 +23,7 @@ public class InteractionHandler
 
     private async Task VideoQueueHandler(SocketMessage message, List<Attachment> attachments)
     {
-        _asyncKeyedLocker.GetOrAdd(WebMQueueKey);
-        using (await _asyncKeyedLocker.LockAsync(WebMQueueKey))
+        using (await _asyncKeyedLocker.LockAsync(WebMQueueKey).ConfigureAwait(false))
         {
             foreach (var attachment in attachments)
             {
