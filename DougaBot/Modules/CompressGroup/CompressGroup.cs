@@ -30,32 +30,38 @@ public sealed partial class CompressGroup : InteractionModuleBase<SocketInteract
         public int Bitrate { get; set; }
     }
 
+    private string Key => $"{Context.Guild.Id.ToString()}";
+
     public CompressGroup(AsyncKeyedLocker<string> asyncKeyedLocker)
     {
         _asyncKeyedLocker = asyncKeyedLocker;
     }
 
-    private async Task CompressionQueueHandler(string url, string before, string after, CompressionType type, object compressionParams)
+    private async Task CompressionQueueHandler(string url,
+        string before,
+        string after,
+        CompressionType type,
+        object compressionParams)
     {
-        _asyncKeyedLocker.GetOrAdd(Context.Guild.Id.ToString());
+        _asyncKeyedLocker.GetOrAdd(Key);
 
-        using var loc = await _asyncKeyedLocker.LockAsync(Context.Guild.Id.ToString());
+        using var loc = await _asyncKeyedLocker.LockAsync(Key);
         Log.Information("[{Source}] {Message}",
             MethodBase.GetCurrentMethod()?.DeclaringType?.Name,
-                $"{Context.User.Username}#{Context.User.Discriminator} ({Context.User.Id}) locked: {url}");
+            $"{Context.User.Username}#{Context.User.Discriminator} ({Context.User.Id}) locked: {url}");
 
         switch (type)
         {
             case CompressionType.Video:
                 {
                     var videoParams = (VideoCompressionParams)compressionParams;
-                    CompressVideo(before, after, videoParams.Resolution, videoParams.ResolutionChange).Start();
+                    await CompressVideo(before, after, videoParams.Resolution, videoParams.ResolutionChange);
                     break;
                 }
             case CompressionType.Audio:
                 {
                     var audioParams = (AudioCompressionParams)compressionParams;
-                    CompressAudio(before, after, audioParams.Bitrate).Start();
+                    await CompressAudio(before, after, audioParams.Bitrate);
                     break;
                 }
         }

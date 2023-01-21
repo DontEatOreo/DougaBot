@@ -31,7 +31,9 @@ public class InteractionHandler
                 Log.Information("[{Source}] {Message}",
                     MethodBase.GetCurrentMethod()?.DeclaringType?.Name,
                     $"{message.Author.Username}#{message.Author.Discriminator} has locked: {attachment.Url}");
+
                 await HandleWebM(message, attachment);
+
                 Log.Information("[{Source}] {Message}",
                     MethodBase.GetCurrentMethod()?.DeclaringType?.Name,
                     $"{message.Author.Username}#{message.Author.Discriminator} has unlocked: {attachment.Url}");

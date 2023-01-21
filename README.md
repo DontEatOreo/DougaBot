@@ -46,6 +46,7 @@ It utilizes **[FFmpeg](https://ffmpeg.org/)** to compress videos or audios and *
 
 ## NuGet Packages
 ```
+AsyncKeyedLock
 Discord.Net.Core
 Discord.Net.Interactions
 Discord.Net.WebSocket
