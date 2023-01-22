@@ -3,7 +3,6 @@ using Discord;
 using Discord.Interactions;
 using DougaBot.PreConditions;
 using Serilog;
-using YoutubeDLSharp.Metadata;
 using YoutubeDLSharp.Options;
 using static DougaBot.GlobalTasks;
 

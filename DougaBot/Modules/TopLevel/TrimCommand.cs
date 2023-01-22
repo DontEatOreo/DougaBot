@@ -48,8 +48,8 @@ public sealed partial class TopLevel
             return;
         }
 
-        var runFetch = await RunFetch(url, TimeSpan.FromMinutes(5),
-            "Video is too long.\nThe video needs to be shorter than 5 minutes",
+        var runFetch = await RunFetch(url, TimeSpan.FromHours(2),
+            "Video is too long.\nThe video needs to be shorter than 2 hours",
             "Could not fetch video data",
             Context.Interaction);
         if (runFetch is null)
@@ -73,12 +73,17 @@ public sealed partial class TopLevel
 
         var folderUuid = Guid.NewGuid().ToString()[..4];
 
+        await FollowupAsync("Please wait while the video is being trimmed...",
+            ephemeral: true,
+            options: Options);
+
         var runDownload = await RunDownload(url,
-            "There was an error trimming the video\nPlease try again later",
+            "There was an error trimming.\nPlease try again later",
             new OptionSet
             {
-                FormatSort = FormatSort,
-                DownloadSections = $"*{startTimeFloat}-{endTimeFloat}",
+                FormatSort = $"{FormatSort},ext:mp4",
+                DownloadSections =
+                    $"*{startTimeFloat.ToString(CultureInfo.InvariantCulture)}-{endTimeFloat.ToString(CultureInfo.InvariantCulture)}",
                 ForceKeyframesAtCuts = true,
                 NoPlaylist = true,
                 Output = Path.Combine(DownloadFolder, folderUuid, "%(id)s.%(ext)s")

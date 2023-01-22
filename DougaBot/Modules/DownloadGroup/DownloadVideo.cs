@@ -4,8 +4,6 @@ using Discord.Interactions;
 using DougaBot.PreConditions;
 using Microsoft.AspNetCore.StaticFiles;
 using Serilog;
-using Xabe.FFmpeg;
-using YoutubeDLSharp.Metadata;
 using YoutubeDLSharp.Options;
 using static DougaBot.GlobalTasks;
 
@@ -88,7 +86,8 @@ public sealed partial class DownloadGroup
          * If you have any other better ideas, please let me know.
          */
         var videoPath = Directory.GetFiles(DownloadFolder, $"{runFetch.ID}.*")
-            .FirstOrDefault(x => new FileExtensionContentTypeProvider().TryGetContentType(x, out var contentType) && contentType.StartsWith("video"));
+            .FirstOrDefault(x => new FileExtensionContentTypeProvider()
+                .TryGetContentType(x, out var contentType) && contentType.StartsWith("video"));
         if (videoPath is null)
         {
             await FollowupAsync("Couldn't process video",
