@@ -87,12 +87,10 @@ public static partial class GlobalTasks
         return null;
     }
 
-    public static async Task<VideoData?> RunDownload(string url,
+    public static async Task<VideoData?> RunFetch(string url,
         TimeSpan durationLimit,
         string durationErrorMessage,
         string dataFetchErrorMessage,
-        string downloadErrorMessage,
-        OptionSet optionSet,
         SocketInteraction interaction)
     {
         var runDataFetch = await YoutubeDl.RunVideoDataFetch(url);
@@ -102,17 +100,23 @@ public static partial class GlobalTasks
             return null;
         }
 
-        if (runDataFetch.Data.Duration > durationLimit.TotalSeconds)
-        {
-            await interaction.FollowupAsync(durationErrorMessage, ephemeral: true, options: Options);
-            return null;
-        }
-
-        var runResult = await YoutubeDl.RunVideoDownload(url, overrideOptions: optionSet);
-        if (runResult.Success)
+        if (!(runDataFetch.Data.Duration > durationLimit.TotalSeconds))
             return runDataFetch.Data;
 
-        await interaction.FollowupAsync(downloadErrorMessage, ephemeral: true, options: Options);
+        await interaction.FollowupAsync(durationErrorMessage, ephemeral: true, options: Options);
         return null;
+    }
+
+    public static async Task<bool> RunDownload(string url,
+        string downloadErrorMessage,
+        OptionSet optionSet,
+        SocketInteraction interaction)
+    {
+        var runResult = await YoutubeDl.RunVideoDownload(url, overrideOptions: optionSet);
+        if (runResult.Success)
+            return true;
+
+        await interaction.FollowupAsync(downloadErrorMessage, ephemeral: true, options: Options);
+        return false;
     }
 }

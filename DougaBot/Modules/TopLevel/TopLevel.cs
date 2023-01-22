@@ -18,8 +18,8 @@ public sealed partial class TopLevel : InteractionModuleBase<SocketInteractionCo
 
     private struct TrimParams
     {
-        public float StartTime { get; set; }
-        public float EndTime { get; set; }
+        public string StartTime { get; set; }
+        public string EndTime { get; set; }
     }
 
     private struct SpeedParams
@@ -35,37 +35,47 @@ public sealed partial class TopLevel : InteractionModuleBase<SocketInteractionCo
 
     private async Task QueueHandler(string url, OperationType operationType, object operationParams)
     {
-        using (await _asyncKeyedLocker.LockAsync(Key).ConfigureAwait(false))
-        {
-            switch (operationType)
-            {
-                case OperationType.Trim:
-                    {
-                        var trimParams = (TrimParams)operationParams;
-                        Log.Information("[{Source}] {Message}",
-                            MethodBase.GetCurrentMethod()?.DeclaringType?.Name,
-                            $"{Context.User.Username}#{Context.User.Discriminator} locked: {url} ({trimParams.StartTime} - {trimParams.EndTime})");
-                        await TrimTask(url, trimParams.StartTime, trimParams.EndTime);
-                        Log.Information("[{Source}] {Message}",
-                            MethodBase.GetCurrentMethod()?.DeclaringType?.Name,
-                            $"{Context.User.Username}#{Context.User.Discriminator} released: {url} ({trimParams.StartTime} - {trimParams.EndTime})");
-                        break;
-                    }
-                case OperationType.Speed:
-                    {
-                        var speedParams = (SpeedParams)operationParams;
-                        Log.Information("[{Source}] {Message}",
-                            MethodBase.GetCurrentMethod()?.DeclaringType?.Name,
-                            $"{Context.User.Username}#{Context.User.Discriminator} locked: {url} ({speedParams.Speed})");
-                        await SpeedTask(url, speedParams.Speed);
-                        Log.Write(LogEventLevel.Information,
-                            "[{Source}] {Message}",
-                            MethodBase.GetCurrentMethod()?.DeclaringType?.Name,
-                            $"{Context.User.Username}#{Context.User.Discriminator} released: {url} ({speedParams.Speed})");
-                        break;
-                    }
+        var remainingCount = _asyncKeyedLocker.GetRemainingCount(Key);
+        if (remainingCount > 0)
+            await FollowupAsync(
+                $"Your video is in position {_asyncKeyedLocker.GetRemainingCount(Key)} in the queue.",
+                ephemeral: true,
+                options: GlobalTasks.Options);
 
-            }
+        using var loc = await _asyncKeyedLocker.LockAsync(Key).ConfigureAwait(false);
+
+        switch (operationType)
+        {
+            case OperationType.Trim:
+                {
+                    var trimParams = (TrimParams)operationParams;
+                    Log.Information("[{Source}] {Message}",
+                        MethodBase.GetCurrentMethod()?.DeclaringType?.Name,
+                        $"{Context.User.Username}#{Context.User.Discriminator} locked: {url} ({trimParams.StartTime} - {trimParams.EndTime})");
+
+                    await TrimTask(url, trimParams.StartTime, trimParams.EndTime);
+
+                    Log.Information("[{Source}] {Message}",
+                        MethodBase.GetCurrentMethod()?.DeclaringType?.Name,
+                        $"{Context.User.Username}#{Context.User.Discriminator} released: {url} ({trimParams.StartTime} - {trimParams.EndTime})");
+                    break;
+                }
+            case OperationType.Speed:
+                {
+                    var speedParams = (SpeedParams)operationParams;
+                    Log.Information("[{Source}] {Message}",
+                        MethodBase.GetCurrentMethod()?.DeclaringType?.Name,
+                        $"{Context.User.Username}#{Context.User.Discriminator} locked: {url} ({speedParams.Speed})");
+
+                    await SpeedTask(url, speedParams.Speed);
+
+                    Log.Write(LogEventLevel.Information,
+                        "[{Source}] {Message}",
+                        MethodBase.GetCurrentMethod()?.DeclaringType?.Name,
+                        $"{Context.User.Username}#{Context.User.Discriminator} released: {url} ({speedParams.Speed})");
+                    break;
+                }
         }
+
     }
 }

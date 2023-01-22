@@ -26,10 +26,15 @@ public sealed partial class CompressGroup
 
     private async Task DownloadAudio(string url, int bitrate)
     {
-        var runResult = await RunDownload(url,
+        var runFetch = await RunFetch(url,
             TimeSpan.FromHours(2),
             "Audio is too long.\nThe audio needs to be shorter than 2 hours",
             "Could not fetch audio",
+            Context.Interaction);
+        if (runFetch is null)
+            return;
+
+        var runDownload = await RunDownload(url,
             "There was an error downloading the audio\nPlease try again later",
             new OptionSet
             {
@@ -38,15 +43,15 @@ public sealed partial class CompressGroup
                 ExtractAudio = true
             }, Context.Interaction);
 
-        if (runResult is null)
+        if (!runDownload)
         {
             RateLimitAttribute.ClearRateLimit(Context.User.Id);
             return;
         }
 
         var folderUuid = Path.GetRandomFileName()[..4];
-        var beforeAudio = Path.Combine(DownloadFolder, $"{runResult.ID}.m4a");
-        var afterAudio = Path.Combine(DownloadFolder, folderUuid, $"{runResult.ID}.m4a");
+        var beforeAudio = Path.Combine(DownloadFolder, $"{runFetch.ID}.m4a");
+        var afterAudio = Path.Combine(DownloadFolder, folderUuid, $"{runFetch.ID}.m4a");
 
         AudioCompressionParams audioParams = new() { Bitrate = bitrate };
         await CompressionQueueHandler(url, beforeAudio, afterAudio, CompressionType.Audio, audioParams);

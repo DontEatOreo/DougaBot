@@ -3,6 +3,7 @@ using Discord;
 using Discord.Interactions;
 using DougaBot.PreConditions;
 using Serilog;
+using YoutubeDLSharp.Metadata;
 using YoutubeDLSharp.Options;
 using static DougaBot.GlobalTasks;
 
@@ -55,10 +56,15 @@ public sealed partial class DownloadGroup
 
     private async Task DownloadAudio(string url)
     {
-        var runResult = await RunDownload(url,
+        var runFetch = await RunFetch(url,
             TimeSpan.FromHours(2),
             "Audio is too long.\nThe audio needs to be shorter than 2 hours",
             "Could not fetch data",
+            Context.Interaction);
+        if (runFetch is null)
+            return;
+
+        var runResult = await RunDownload(url,
             "Could not download audio",
             new OptionSet
             {
@@ -67,13 +73,13 @@ public sealed partial class DownloadGroup
                 NoPlaylist = true
             }, Context.Interaction);
 
-        if (runResult is null)
+        if (!runResult)
         {
             RateLimitAttribute.ClearRateLimit(Context.User.Id);
             return;
         }
 
-        var audioPath = Path.Combine(DownloadFolder, $"{runResult.ID}.m4a");
+        var audioPath = Path.Combine(DownloadFolder, $"{runFetch.ID}.m4a");
         var audioSize = new FileInfo(audioPath).Length / 1048576f;
 
         if (audioSize > 1024)
@@ -84,7 +90,7 @@ public sealed partial class DownloadGroup
                 options: Options);
             Log.Warning("[{Source}] {File} is too big",
                 MethodBase.GetCurrentMethod()?.Name,
-                runResult.ID);
+                runFetch.ID);
             return;
         }
 

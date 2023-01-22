@@ -50,6 +50,7 @@ AsyncKeyedLock
 Discord.Net.Core
 Discord.Net.Interactions
 Discord.Net.WebSocket
+Microsoft.AspNetCore.StaticFiles
 Microsoft.Extensions.DependencyInjection
 Microsoft.Extensions.Hosting
 Serilog

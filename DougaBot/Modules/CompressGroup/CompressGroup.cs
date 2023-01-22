@@ -43,9 +43,15 @@ public sealed partial class CompressGroup : InteractionModuleBase<SocketInteract
         CompressionType type,
         object compressionParams)
     {
-        _asyncKeyedLocker.GetOrAdd(Key);
+        var remainingCount = _asyncKeyedLocker.GetRemainingCount(Key);
+        if (remainingCount > 0)
+            await FollowupAsync(
+                $"Your video is in position {_asyncKeyedLocker.GetRemainingCount(Key)} in the queue.",
+                ephemeral: true,
+                options: GlobalTasks.Options);
 
-        using var loc = await _asyncKeyedLocker.LockAsync(Key);
+        using var loc = await _asyncKeyedLocker.LockAsync(Key).ConfigureAwait(false);
+
         Log.Information("[{Source}] {Message}",
             MethodBase.GetCurrentMethod()?.DeclaringType?.Name,
             $"{Context.User.Username}#{Context.User.Discriminator} ({Context.User.Id}) locked: {url}");
