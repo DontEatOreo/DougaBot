@@ -1,7 +1,6 @@
 using Discord.Interactions;
 using DougaBot.PreConditions;
 using Xabe.FFmpeg;
-using YoutubeDLSharp.Metadata;
 using YoutubeDLSharp.Options;
 using static DougaBot.GlobalTasks;
 
