@@ -21,7 +21,7 @@ var host = Host.CreateDefaultBuilder()
             services.AddSingleton<InteractionHandler>();
             services.AddSingleton(new AsyncKeyedLocker<string>(o =>
             {
-                o.PoolSize = 20;
+                o.PoolSize = Environment.ProcessorCount * 4;
                 o.PoolInitialFill = 1;
             }));
         }

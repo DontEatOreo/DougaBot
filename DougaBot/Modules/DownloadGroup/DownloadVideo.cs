@@ -85,9 +85,16 @@ public sealed partial class DownloadGroup
          * then download a video file with the same ID, and then the audio file would be sent, instead of the video file.
          * If you have any other better ideas, please let me know.
          */
-        var videoPath = Directory.GetFiles(DownloadFolder, $"{runFetch.ID}.*")
-            .FirstOrDefault(x => new FileExtensionContentTypeProvider()
-                .TryGetContentType(x, out var contentType) && contentType.StartsWith("video"));
+        string? videoPath = null;
+        foreach (var filePath in Directory.GetFiles(DownloadFolder, $"{runFetch.ID}.*"))
+        {
+            if (!new FileExtensionContentTypeProvider().TryGetContentType(filePath, out var contentType) ||
+                !contentType.StartsWith("video"))
+                continue;
+
+            videoPath = filePath;
+            break;
+        }
         if (videoPath is null)
         {
             await FollowupAsync("Couldn't process video",

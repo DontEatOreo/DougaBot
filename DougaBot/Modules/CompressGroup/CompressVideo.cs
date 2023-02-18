@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Reflection;
 using Discord.Interactions;
 using DougaBot.PreConditions;
@@ -12,6 +11,20 @@ namespace DougaBot.Modules.CompressGroup;
 
 public sealed partial class CompressGroup
 {
+    private bool _iOsCompatible = Convert.ToBoolean(Environment.GetEnvironmentVariable("IOS_COMPATIBLE"));
+
+    private readonly string[] _vp9Args = {
+        "-row-mt 1",
+        "-lag-in-frames 25",
+        "-cpu-used 4",
+        "-auto-alt-ref 1",
+        "-arnr-maxframes 7",
+        "-arnr-strength 4",
+        "-aq-mode 0",
+        "-enable-tpl 1",
+        "-row-mt 1"
+    };
+
     /// <summary>
     /// Compress a video
     /// </summary>
@@ -58,24 +71,34 @@ public sealed partial class CompressGroup
          * then download a video file with the same ID, and then the audio file would be sent, instead of the video file.
          * If you have any other better ideas, please let me know.
          */
+        string? before = null;
+        string? after = null;
         var folderUuid = Guid.NewGuid().ToString()[..4];
-        var before = Directory.GetFiles(DownloadFolder, $"{runFetch.ID}.*")
-            .FirstOrDefault(x => new FileExtensionContentTypeProvider()
-                .TryGetContentType(x, out var contentType) && contentType.StartsWith("video"));
-        if (before is null)
+        var matchingFiles = Directory.GetFiles(DownloadFolder, $"{runFetch.ID}.*");
+        foreach (var matchingFile in matchingFiles)
+        {
+            if (!new FileExtensionContentTypeProvider()
+                    .TryGetContentType(matchingFile, out var contentType) || !contentType.StartsWith("video"))
+                continue;
+
+            var extension = Path.GetExtension(matchingFile);
+            after = Path.Combine(DownloadFolder, folderUuid, $"{runFetch.ID}.{extension}");
+            before = matchingFile;
+        }
+        if (before is null || after is null)
         {
             await FollowupAsync("Couldn't process video",
                 ephemeral: true,
                 options: Options);
             return;
         }
-        var after = Path.Combine(DownloadFolder, folderUuid, $"{runFetch.ID}.mp4");
 
         var beforeDuration = await FFmpeg.GetMediaInfo(before);
 
         if (beforeDuration.Duration > TimeSpan.FromMinutes(4))
         {
-            await FollowupAsync("Video is too long.\nThe video needs to be shorter than 4 minutes",
+            await FollowupAsync("Video is too long.\n" +
+                                "The video needs to be shorter than 4 minutes",
                 ephemeral: true,
                 options: Options);
             File.Delete(before);
@@ -122,42 +145,9 @@ public sealed partial class CompressGroup
 
         if (resolutionChange)
         {
-            var resolutionChoices = typeof(CompressGroup)
-                .GetMethod(nameof(SlashCompressVideoCommand))
-                ?.GetParameters()
-                .Where(x => x.CustomAttributes.Any(y => y.AttributeType == typeof(ChoiceAttribute)))
-                .SelectMany(x => x.GetCustomAttributes<ChoiceAttribute>())
-                .Select(x => x.Value)
-                .ToList();
-
-            // Calculate the dimensions of the output video based on the original dimensions and the selected resolution
-            var resolutionMap = resolutionChoices!.ToDictionary(x => x.ToString()!,
-                    x => (Width: int.Parse(x.ToString()?[..^1]!), Height: int.Parse(x.ToString()?[..^1]!)));
-            outputWidth = resolutionMap[resolution!].Width;
-            outputHeight = resolutionMap[resolution!].Height;
-
-            switch (Math.Sign(originalWidth - originalHeight))
-            {
-                case 1:
-                    // If the input video is landscape orientation, use the full width and adjust the height
-                    outputHeight = (int)Math.Round(originalHeight * ((double)outputWidth / originalWidth));
-                    // Round down the width and height to the nearest multiple of 2
-                    outputWidth -= outputWidth % 2;
-                    outputHeight -= outputHeight % 2;
-                    break;
-                case -1:
-                    // If the input video is portrait orientation, use the full height and adjust the width
-                    outputWidth = (int)Math.Round(originalWidth * ((double)outputHeight / originalHeight));
-                    // Round down the width and height to the nearest multiple of 2
-                    outputWidth -= outputWidth % 2;
-                    outputHeight -= outputHeight % 2;
-                    break;
-                default:
-                    // If the input video is square, use the full width and height of the selected resolution
-                    outputWidth = resolutionMap[resolution!].Width;
-                    outputHeight = resolutionMap[resolution!].Height;
-                    break;
-            }
+            var resolutionTuple = GetOutputDimensions(originalWidth, originalHeight, resolution!);
+            outputHeight = resolutionTuple.Height;
+            outputWidth = resolutionTuple.Width;
         }
 
         if (outputHeight > 720)
@@ -170,25 +160,30 @@ public sealed partial class CompressGroup
 
         if (outputHeight > 0)
             videoStream.SetSize(outputWidth, outputHeight);
-        videoStream.SetCodec(VideoCodec.h264);
 
         // Compress Video
         var conversion = FFmpeg.Conversions.New()
             .AddStream(videoStream)
             .SetOutput(after)
             .SetPreset(ConversionPreset.VerySlow)
-            .SetPixelFormat(PixelFormat.yuv420p)
-            .SetPriority(ProcessPriorityClass.BelowNormal)
-            .UseMultiThread(Environment.ProcessorCount > 1 ? Environment.ProcessorCount : 1)
+            .SetPixelFormat(PixelFormat.yuv420p10le)
             .AddParameter("-crf 30");
 
-        if (Convert.ToBoolean(Environment.GetEnvironmentVariable("USE_HARDWARE_ACCELERATION")))
-            conversion.UseHardwareAcceleration(HardwareAccelerator.auto, VideoCodec.h264, VideoCodec.h264);
+        if (_iOsCompatible)
+            videoStream.SetCodec(VideoCodec.libx264);
+        else
+        {
+            videoStream.SetCodec(VideoCodec.vp9);
+            conversion.AddParameter(string.Join(" ", _vp9Args));
+        }
+
 
         if (audioStream is not null)
         {
             conversion.AddStream(audioStream);
-            audioStream.SetCodec(AudioCodec.aac);
+            audioStream.SetCodec(!_iOsCompatible
+                ? AudioCodec.opus
+                : AudioCodec.aac);
             if (audioStream.Bitrate > 128)
                 audioStream.SetBitrate(128);
         }
@@ -197,5 +192,36 @@ public sealed partial class CompressGroup
 
         var videoSize = new FileInfo(after).Length / 1048576f;
         await UploadFile(videoSize, after, Context);
+    }
+
+    private static (int Width, int Height) GetOutputDimensions(int originalWidth, int originalHeight, string resolution)
+    {
+        var width = int.Parse(resolution[..^1]);
+
+        int outputWidth, outputHeight;
+        if (originalWidth > originalHeight)
+        {
+            // If the input video is landscape orientation, use the full width and adjust the height
+            outputWidth = width;
+            outputHeight = (int)Math.Round(originalHeight * ((double)outputWidth / originalWidth));
+        }
+        else if (originalWidth < originalHeight)
+        {
+            // If the input video is portrait orientation, use the full height and adjust the width
+            outputHeight = width;
+            outputWidth = (int)Math.Round(originalWidth * ((double)outputHeight / originalHeight));
+        }
+        else
+        {
+            // If the input video is square, use the full width and height of the selected resolution
+            outputWidth = width;
+            outputHeight = width;
+        }
+
+        // Round down the width and height to the nearest multiple of 2
+        outputWidth -= outputWidth % 2;
+        outputHeight -= outputHeight % 2;
+
+        return (outputWidth, outputHeight);
     }
 }

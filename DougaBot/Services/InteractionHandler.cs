@@ -141,11 +141,7 @@ public class InteractionHandler
             .SetPreset(ConversionPreset.VerySlow)
             .SetPixelFormat(PixelFormat.yuv420p)
             .SetPriority(ProcessPriorityClass.BelowNormal)
-            .UseMultiThread(Environment.ProcessorCount > 1 ? Environment.ProcessorCount / 2 : 1)
             .AddParameter("-crf 30");
-
-        if (Convert.ToBoolean(Environment.GetEnvironmentVariable("USE_HARDWARE_ACCELERATION")))
-            conversion.UseHardwareAcceleration(HardwareAccelerator.auto, VideoCodec.h264, VideoCodec.h264);
 
         if (audioStream is not null)
         {

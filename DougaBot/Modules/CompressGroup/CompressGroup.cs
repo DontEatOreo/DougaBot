@@ -39,7 +39,7 @@ public sealed partial class CompressGroup : InteractionModuleBase<SocketInteract
 
     private async Task CompressionQueueHandler(string url,
         string before,
-        string after,
+        string? after,
         CompressionType type,
         object compressionParams)
     {
