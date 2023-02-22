@@ -1,4 +1,5 @@
 using System.Reflection;
+using Discord;
 using Discord.Interactions;
 using DougaBot.PreConditions;
 using Microsoft.AspNetCore.StaticFiles;
@@ -29,7 +30,8 @@ public sealed partial class CompressGroup
     /// Compress a video
     /// </summary>
     [SlashCommand("video", "Compress Video")]
-    public async Task SlashCompressVideoCommand(string url,
+    public async Task SlashCompressVideoCommand(IAttachment? attachment = null,
+        string? url = null,
         [Choice("144p", "144p"),
          Choice("240p", "240p"),
          Choice("360p", "360p"),
@@ -37,20 +39,40 @@ public sealed partial class CompressGroup
          Choice("720p", "720p")]
         string? resolution = default)
         => await DeferAsync(options: Options)
-            .ContinueWith(async _ => await DownloadVideo(url, resolution));
+            .ContinueWith(async _ => await DownloadVideo(attachment, url, resolution));
 
-    private async Task DownloadVideo(string url, string? resolution)
+    private async Task DownloadVideo(IAttachment? attachment, string? url, string? resolution)
     {
+        if (url is null && attachment is null)
+        {
+            await FollowupAsync("You need to provide either a url or an attachment",
+                ephemeral: true,
+                options: Options);
+            RateLimitAttribute.ClearRateLimit(Context.User.Id);
+            return;
+        }
+        if (url is not null && attachment is not null)
+        {
+            await FollowupAsync("You can't provide both a url and an attachment",
+                ephemeral: true,
+                options: Options);
+            RateLimitAttribute.ClearRateLimit(Context.User.Id);
+            return;
+        }
+
         var resolutionChange = resolution is not null;
 
-        var runFetch = await RunFetch(url, TimeSpan.FromMinutes(5),
+        var runFetch = await RunFetch(url ?? attachment!.Url, TimeSpan.FromMinutes(5),
             "Video is too long.\nThe video needs to be shorter than 5 minutes",
             "Could not fetch video data",
             Context.Interaction);
         if (runFetch is null)
+        {
+            RateLimitAttribute.ClearRateLimit(Context.User.Id);
             return;
+        }
 
-        var runDownload = await RunDownload(url,
+        var runDownload = await RunDownload(url ?? attachment!.Url,
             "There was an error downloading the video\nPlease try again later",
             new OptionSet
             {
@@ -82,7 +104,7 @@ public sealed partial class CompressGroup
                 continue;
 
             var extension = Path.GetExtension(matchingFile);
-            after = Path.Combine(DownloadFolder, folderUuid, $"{runFetch.ID}.{extension}");
+            after = Path.Combine(DownloadFolder, folderUuid, $"{runFetch.ID}{extension}");
             before = matchingFile;
         }
         if (before is null || after is null)
@@ -106,7 +128,7 @@ public sealed partial class CompressGroup
         }
 
         VideoCompressionParams videoParams = new() { Resolution = resolution, ResolutionChange = resolutionChange };
-        await CompressionQueueHandler(url, before, after, CompressionType.Video, videoParams);
+        await CompressionQueueHandler(url ?? attachment!.Url, before, after, CompressionType.Video, videoParams);
     }
 
     private async Task CompressVideo(string before, string after, string? resolution, bool resolutionChange)
@@ -182,7 +204,7 @@ public sealed partial class CompressGroup
         {
             conversion.AddStream(audioStream);
             audioStream.SetCodec(!_iOsCompatible
-                ? AudioCodec.opus
+                ? AudioCodec.libopus
                 : AudioCodec.aac);
             if (audioStream.Bitrate > 128)
                 audioStream.SetBitrate(128);

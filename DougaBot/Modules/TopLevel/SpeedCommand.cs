@@ -20,10 +20,7 @@ public sealed partial class TopLevel
         => await DeferAsync(options: Options)
             .ContinueWith(_ => QueueHandler(url,
                 OperationType.Speed,
-                new SpeedParams
-                {
-                    Speed = speed
-                }));
+                new SpeedParams { Speed = speed }));
 
     public async Task SpeedTask(string url, double speed)
     {

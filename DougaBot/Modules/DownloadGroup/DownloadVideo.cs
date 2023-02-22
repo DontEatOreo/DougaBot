@@ -15,7 +15,7 @@ public sealed partial class DownloadGroup
     /// Download Video
     /// </summary>
     [SlashCommand("video", "Download Video")]
-    public async Task SlashDownloadVideoCommand(string url)
+    public async Task SlashDownloadVideoCommand(string? url)
         => await DeferAsync(options: Options)
             .ContinueWith(async _ => await DownloadVideo(url));
 
@@ -55,7 +55,7 @@ public sealed partial class DownloadGroup
         }
     }
 
-    private async Task DownloadVideo(string url)
+    private async Task DownloadVideo(string? url)
     {
         var runFetch = await RunFetch(url, TimeSpan.FromHours(2),
             "Video needs to be shorter than 2 hours",

@@ -8,7 +8,7 @@
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
         <PackageProjectUrl>https://github.com/DontEatOreo/DougaBot</PackageProjectUrl>
         <Authors>DontEatOreo</Authors>
-        <Version>1.2.2</Version>
+        <Version>1.2.3</Version>
     </PropertyGroup>
 
     <ItemGroup>

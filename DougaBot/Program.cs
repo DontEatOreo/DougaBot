@@ -14,8 +14,7 @@ var host = Host.CreateDefaultBuilder()
         {
             services.AddSingleton(_ => new DiscordSocketClient(new DiscordSocketConfig
             {
-                GatewayIntents = GatewayIntents.All & ~GatewayIntents.GuildScheduledEvents &
-                    ~GatewayIntents.GuildInvites & ~GatewayIntents.GuildPresences
+                GatewayIntents = GatewayIntents.MessageContent
             }));
             services.AddSingleton(x => new InteractionService(x.GetRequiredService<DiscordSocketClient>()));
             services.AddSingleton<InteractionHandler>();
@@ -42,7 +41,7 @@ socketClient.Log += LogAsync;
 interactionService.Log += LogAsync;
 
 // Registers commands globally
-if (Convert.ToBoolean(Environment.GetEnvironmentVariable("REGISER_GLOBAL_COMMANDS")))
+if (Convert.ToBoolean(Environment.GetEnvironmentVariable("REGISTER_GLOBAL_COMMANDS")))
     socketClient.Ready += async () => await interactionService.RegisterCommandsGloballyAsync();
 
 await socketClient.LoginAsync(TokenType.Bot, Environment.GetEnvironmentVariable("DOUGA_TOKEN"));

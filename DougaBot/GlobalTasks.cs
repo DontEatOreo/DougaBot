@@ -87,7 +87,7 @@ public static partial class GlobalTasks
         return null;
     }
 
-    public static async Task<VideoData?> RunFetch(string url,
+    public static async Task<VideoData?> RunFetch(string? url,
         TimeSpan durationLimit,
         string durationErrorMessage,
         string dataFetchErrorMessage,
@@ -107,7 +107,7 @@ public static partial class GlobalTasks
         return null;
     }
 
-    public static async Task<bool> RunDownload(string url,
+    public static async Task<bool> RunDownload(string? url,
         string downloadErrorMessage,
         OptionSet optionSet,
         SocketInteraction interaction)

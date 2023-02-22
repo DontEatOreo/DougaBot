@@ -14,7 +14,7 @@ public sealed partial class DownloadGroup
     /// Download Audio
     /// </summary>
     [SlashCommand("audio", "Download Audio")]
-    public async Task SlashCompressAudioCommand(string url)
+    public async Task SlashCompressAudioCommand(string? url)
         => await DeferAsync(options: Options)
             .ContinueWith(async _ => await DownloadAudio(url));
 
@@ -53,7 +53,7 @@ public sealed partial class DownloadGroup
         }
     }
 
-    private async Task DownloadAudio(string url)
+    private async Task DownloadAudio(string? url)
     {
         var runFetch = await RunFetch(url,
             TimeSpan.FromHours(2),

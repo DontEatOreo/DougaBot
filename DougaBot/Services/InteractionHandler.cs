@@ -23,20 +23,18 @@ public class InteractionHandler
 
     private async Task VideoQueueHandler(SocketMessage message, List<Attachment> attachments)
     {
-        using (await _asyncKeyedLocker.LockAsync(WebMQueueKey).ConfigureAwait(false))
+        using var _ = await _asyncKeyedLocker.LockAsync(WebMQueueKey).ConfigureAwait(false);
+        foreach (var attachment in attachments)
         {
-            foreach (var attachment in attachments)
-            {
-                Log.Information("[{Source}] {Message}",
-                    MethodBase.GetCurrentMethod()?.DeclaringType?.Name,
-                    $"{message.Author.Username}#{message.Author.Discriminator} has locked: {attachment.Url}");
+            Log.Information("[{Source}] {Message}",
+                MethodBase.GetCurrentMethod()?.DeclaringType?.Name,
+                $"{message.Author.Username}#{message.Author.Discriminator} has locked: {attachment.Url}");
 
-                await HandleWebM(message, attachment);
+            await HandleWebM(message, attachment);
 
-                Log.Information("[{Source}] {Message}",
-                    MethodBase.GetCurrentMethod()?.DeclaringType?.Name,
-                    $"{message.Author.Username}#{message.Author.Discriminator} has unlocked: {attachment.Url}");
-            }
+            Log.Information("[{Source}] {Message}",
+                MethodBase.GetCurrentMethod()?.DeclaringType?.Name,
+                $"{message.Author.Username}#{message.Author.Discriminator} has unlocked: {attachment.Url}");
         }
     }
 

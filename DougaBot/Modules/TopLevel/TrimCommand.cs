@@ -4,6 +4,7 @@ using Discord.Interactions;
 using DougaBot.PreConditions;
 using YoutubeDLSharp.Options;
 using static DougaBot.GlobalTasks;
+using static DougaBot.PreConditions.RateLimitAttribute;
 
 namespace DougaBot.Modules.TopLevel;
 
@@ -22,8 +23,7 @@ public sealed partial class TopLevel
         [Summary(description: "Format: ss.ms (seconds.milliseconds)")] string endTime)
         => await DeferAsync(options: Options)
             .ContinueWith(_ => QueueHandler(url,
-                OperationType.Trim,
-                new TrimParams
+                OperationType.Trim, new TrimParams
                 {
                     StartTime = startTime,
                     EndTime = endTime
@@ -77,13 +77,14 @@ public sealed partial class TopLevel
             ephemeral: true,
             options: Options);
 
+        var downloadArgs =
+            $"*{startTimeFloat.ToString(CultureInfo.InvariantCulture)}-{endTimeFloat.ToString(CultureInfo.InvariantCulture)}";
         var runDownload = await RunDownload(url,
             "There was an error trimming.\nPlease try again later",
             new OptionSet
             {
                 FormatSort = $"{FormatSort},ext:mp4",
-                DownloadSections =
-                    $"*{startTimeFloat.ToString(CultureInfo.InvariantCulture)}-{endTimeFloat.ToString(CultureInfo.InvariantCulture)}",
+                DownloadSections = downloadArgs,
                 ForceKeyframesAtCuts = true,
                 NoPlaylist = true,
                 Output = Path.Combine(DownloadFolder, folderUuid, "%(id)s.%(ext)s")
@@ -91,7 +92,7 @@ public sealed partial class TopLevel
 
         if (!runDownload)
         {
-            RateLimitAttribute.ClearRateLimit(Context.User.Id);
+            ClearRateLimit(Context.User.Id);
             return;
         }
 
@@ -105,7 +106,6 @@ public sealed partial class TopLevel
         }
 
         var fileSize = new FileInfo(trimFile).Length / 1048576f;
-
         await UploadFile(fileSize, trimFile, Context);
     }
 }

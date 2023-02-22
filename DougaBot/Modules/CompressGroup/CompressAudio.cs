@@ -1,4 +1,5 @@
 using System.Reflection;
+using Discord;
 using Discord.Interactions;
 using DougaBot.PreConditions;
 using Serilog;
@@ -14,36 +15,44 @@ public sealed partial class CompressGroup
     /// Compress Audio
     /// </summary>
     [SlashCommand("audio", "Compress Audio")]
-    public async Task SlashCompressAudioCommand(string url,
-        [Choice("64k",64),
-         Choice("96k",96),
-         Choice("128k",128),
-         Choice("192k",192),
-         Choice("256k",256),
-         Choice("320k",320)] int bitrate)
+    public async Task SlashCompressAudioCommand(
+        [Choice("64k", 64)]
+        [Choice("96k", 96)]
+        [Choice("128k", 128)]
+        [Choice("192k", 192)]
+        [Choice("256k", 256)]
+        [Choice("320k", 320)]
+        int bitrate, string? url = null, IAttachment? attachment = null)
         => await DeferAsync(options: Options)
-            .ContinueWith(async _ => await DownloadAudio(url, bitrate));
+            .ContinueWith(async _ => await DownloadAudio(attachment, url, bitrate));
 
-    private async Task DownloadAudio(string url, int bitrate)
+    private async Task DownloadAudio(IAttachment? attachment, string? url, int bitrate)
     {
-        var runFetch = await RunFetch(url,
+        if (url is null && attachment is null)
+        {
+            await FollowupAsync("You need to provide either a url or an attachment",
+                ephemeral: true,
+                options: Options);
+            RateLimitAttribute.ClearRateLimit(Context.User.Id);
+            return;
+        }
+        if (url is not null && attachment is not null)
+        {
+            await FollowupAsync("You can't provide both a url and an attachment",
+                ephemeral: true,
+                options: Options);
+            RateLimitAttribute.ClearRateLimit(Context.User.Id);
+            return;
+        }
+
+        // Fetch audio
+        var runFetch = await RunFetch(url ?? attachment!.Url,
             TimeSpan.FromHours(2),
             "Audio is too long.\nThe audio needs to be shorter than 2 hours",
             "Could not fetch audio",
             Context.Interaction);
+
         if (runFetch is null)
-            return;
-
-        var runDownload = await RunDownload(url,
-            "There was an error downloading the audio\nPlease try again later",
-            new OptionSet
-            {
-                NoPlaylist = true,
-                AudioFormat = AudioConversionFormat.M4a,
-                ExtractAudio = true
-            }, Context.Interaction);
-
-        if (!runDownload)
         {
             RateLimitAttribute.ClearRateLimit(Context.User.Id);
             return;
@@ -53,8 +62,24 @@ public sealed partial class CompressGroup
         var beforeAudio = Path.Combine(DownloadFolder, $"{runFetch.ID}.m4a");
         var afterAudio = Path.Combine(DownloadFolder, folderUuid, $"{runFetch.ID}.m4a");
 
-        AudioCompressionParams audioParams = new() { Bitrate = bitrate };
-        await CompressionQueueHandler(url, beforeAudio, afterAudio, CompressionType.Audio, audioParams);
+        // Download audio
+        var runDownload = await RunDownload(url ?? attachment!.Url,
+            "There was an error downloading the audio\nPlease try again later",
+            new OptionSet
+            {
+                NoPlaylist = true,
+                AudioFormat = AudioConversionFormat.M4a,
+                ExtractAudio = true
+            }, Context.Interaction);
+        if (!runDownload)
+        {
+            RateLimitAttribute.ClearRateLimit(Context.User.Id);
+            return;
+        }
+
+        // Compress audio
+        var audioParams = new AudioCompressionParams { Bitrate = bitrate };
+        await CompressionQueueHandler(url ?? attachment!.Url, beforeAudio, afterAudio, CompressionType.Audio, audioParams);
     }
 
     private async Task CompressAudio(string before,
