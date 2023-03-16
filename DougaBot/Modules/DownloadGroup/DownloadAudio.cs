@@ -1,26 +1,37 @@
-using System.Reflection;
 using Discord;
 using Discord.Interactions;
 using DougaBot.PreConditions;
-using Serilog;
-using YoutubeDLSharp.Options;
-using static DougaBot.GlobalTasks;
+using JetBrains.Annotations;
 
 namespace DougaBot.Modules.DownloadGroup;
 
 public sealed partial class DownloadGroup
 {
+
     /// <summary>
     /// Download Audio
     /// </summary>
+    [UsedImplicitly]
     [SlashCommand("audio", "Download Audio")]
-    public async Task SlashCompressAudioCommand(string? url)
-        => await DeferAsync(options: Options)
-            .ContinueWith(async _ => await DownloadAudio(url));
+    public async Task SlashCompressAudioCommand(string url)
+    {
+        await DeferAsync(options: _globalTasks.ReqOptions);
 
+        var downloadResult = await _audioService.DownloadAudioAsync(null, url, Context);
+        if (downloadResult.filePath is null)
+        {
+            RateLimitAttribute.ClearRateLimit(Context.User.Id);
+            return;
+        }
+
+        var fileSize = new FileInfo(downloadResult.filePath).Length / 1048576f;
+        await _globalTasks.UploadFile(fileSize, downloadResult.filePath, Context);
+    }
+
+    [UsedImplicitly]
     public async Task AudioMessageCommand(IMessage message)
     {
-        await DeferAsync(options: Options);
+        await DeferAsync(options: _globalTasks.ReqOptions);
 
         if (message.Attachments.Any())
         {
@@ -31,68 +42,39 @@ public sealed partial class DownloadGroup
                 {
                     await FollowupAsync("Invalid file type",
                         ephemeral: true,
-                        options: Options);
+                        options: _globalTasks.ReqOptions);
                     return;
                 }
 
-                await DownloadAudio(attachment.Url);
+                var downloadResult = await _audioService.DownloadAudioAsync(attachment, null, Context);
+                if (downloadResult.filePath is null)
+                {
+                    RateLimitAttribute.ClearRateLimit(Context.User.Id);
+                    return;
+                }
+                var fileSize = new FileInfo(downloadResult.filePath).Length / 1048576f;
+                await _globalTasks.UploadFile(fileSize, downloadResult.filePath, Context);
             }
         }
         else
         {
-            var extractUrl = await ExtractUrl(message.Content, Context.Interaction);
+            var extractUrl = await _globalTasks.ExtractUrl(message.Content, Context.Interaction);
             if (extractUrl is null)
             {
                 await FollowupAsync("No URL found",
                     ephemeral: true,
-                    options: Options);
+                    options: _globalTasks.ReqOptions);
                 return;
             }
 
-            await DownloadAudio(extractUrl);
-        }
-    }
-
-    private async Task DownloadAudio(string? url)
-    {
-        var runFetch = await RunFetch(url,
-            TimeSpan.FromHours(2),
-            "Audio is too long.\nThe audio needs to be shorter than 2 hours",
-            "Could not fetch data",
-            Context.Interaction);
-        if (runFetch is null)
-            return;
-
-        var runResult = await RunDownload(url,
-            "Could not download audio",
-            new OptionSet
+            var downloadResult = await _audioService.DownloadAudioAsync(null, extractUrl, Context);
+            if (downloadResult.filePath is null)
             {
-                ExtractAudio = true,
-                AudioFormat = AudioConversionFormat.M4a,
-                NoPlaylist = true
-            }, Context.Interaction);
-
-        if (!runResult)
-        {
-            RateLimitAttribute.ClearRateLimit(Context.User.Id);
-            return;
+                RateLimitAttribute.ClearRateLimit(Context.User.Id);
+                return;
+            }
+            var fileSize = new FileInfo(downloadResult.filePath).Length / 1048576f;
+            await _globalTasks.UploadFile(fileSize, downloadResult.filePath, Context);
         }
-
-        var audioPath = Path.Combine(DownloadFolder, $"{runFetch.ID}.m4a");
-        var audioSize = new FileInfo(audioPath).Length / 1048576f;
-
-        if (audioSize > 1024)
-        {
-            File.Delete(audioPath);
-            await FollowupAsync("Audio is too big.\nThe audio needs to be smaller than 1GB",
-                ephemeral: true,
-                options: Options);
-            Log.Warning("[{Source}] {File} is too big",
-                MethodBase.GetCurrentMethod()?.Name,
-                runFetch.ID);
-            return;
-        }
-
-        await UploadFile(audioSize, audioPath, Context);
     }
 }

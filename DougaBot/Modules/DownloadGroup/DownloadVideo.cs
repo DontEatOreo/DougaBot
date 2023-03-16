@@ -1,11 +1,7 @@
-using System.Reflection;
 using Discord;
 using Discord.Interactions;
 using DougaBot.PreConditions;
-using Microsoft.AspNetCore.StaticFiles;
-using Serilog;
-using YoutubeDLSharp.Options;
-using static DougaBot.GlobalTasks;
+using JetBrains.Annotations;
 
 namespace DougaBot.Modules.DownloadGroup;
 
@@ -14,15 +10,29 @@ public sealed partial class DownloadGroup
     /// <summary>
     /// Download Video
     /// </summary>
+    [UsedImplicitly]
     [SlashCommand("video", "Download Video")]
-    public async Task SlashDownloadVideoCommand(string? url)
-        => await DeferAsync(options: Options)
-            .ContinueWith(async _ => await DownloadVideo(url));
+    public async Task SlashDownloadVideoCommand(string url)
+    {
+        await DeferAsync(options: _globalTasks.ReqOptions);
 
+        var downloadResult = await _videoService.DownloadVideoAsync(null, url, null, Context);
+        if (downloadResult.filePath is null ||
+            downloadResult.compressPath is null)
+        {
+            RateLimitAttribute.ClearRateLimit(Context.User.Id);
+            return;
+        }
+
+        var fileSize = new FileInfo(downloadResult.filePath).Length / 1048576f;
+        await _globalTasks.UploadFile(fileSize, downloadResult.filePath, Context);
+    }
+
+    [UsedImplicitly]
     [MessageCommand("Download Video")]
     public async Task VideoMessageCommand(IMessage message)
     {
-        await DeferAsync(options: Options);
+        await DeferAsync(options: _globalTasks.ReqOptions);
 
         if (message.Attachments.Any())
         {
@@ -32,90 +42,44 @@ public sealed partial class DownloadGroup
                 {
                     await FollowupAsync("Invalid file type",
                         ephemeral: true,
-                        options: Options);
+                        options: _globalTasks.ReqOptions);
                     return;
                 }
 
-                await DownloadVideo(attachment.Url);
+                var downloadResult = await _videoService.DownloadVideoAsync(null, attachment.Url, null, Context);
+                if (downloadResult.filePath is null ||
+                    downloadResult.compressPath is null)
+                {
+                    RateLimitAttribute.ClearRateLimit(Context.User.Id);
+                    return;
+                }
+
+                var fileSize = new FileInfo(downloadResult.filePath).Length / 1048576f;
+                await _globalTasks.UploadFile(fileSize, downloadResult.filePath, Context);
             }
         }
         else
         {
-            var extractUrl = await ExtractUrl(message.Content, Context.Interaction);
+            var extractUrl = await _globalTasks.ExtractUrl(message.Content, Context.Interaction);
 
             if (extractUrl is null)
             {
                 await FollowupAsync("No URL found",
                     ephemeral: true,
-                    options: Options);
+                    options: _globalTasks.ReqOptions);
                 return;
             }
 
-            await DownloadVideo(extractUrl);
-        }
-    }
-
-    private async Task DownloadVideo(string? url)
-    {
-        var runFetch = await RunFetch(url, TimeSpan.FromHours(2),
-            "Video needs to be shorter than 2 hours",
-            "Could not download video",
-            Context.Interaction);
-        if (runFetch is null)
-            return;
-
-        var runDownload = await RunDownload(url,
-            "Couldn't download video",
-            new OptionSet
+            var downloadResult = await _videoService.DownloadVideoAsync(null, extractUrl, null, Context);
+            if (downloadResult.filePath is null ||
+                downloadResult.compressPath is null)
             {
-                FormatSort = FormatSort,
-                NoPlaylist = true
-            }, Context.Interaction);
+                RateLimitAttribute.ClearRateLimit(Context.User.Id);
+                return;
+            }
 
-        if (!runDownload)
-        {
-            RateLimitAttribute.ClearRateLimit(Context.User.Id);
-            return;
+            var fileSize = new FileInfo(downloadResult.filePath).Length / 1048576f;
+            await _globalTasks.UploadFile(fileSize, downloadResult.filePath, Context);
         }
-
-        /*
-         * Previously I used to use `runFetch.Extension` but they're cases where the library returns one extension, but yt-dlp downloads a different one.
-         * To combat this, I'm looking for first file in the directory that matches the video ID with any extension that is of type video.
-         * The reason I'm using content type is because a user could first download an audio file,
-         * then download a video file with the same ID, and then the audio file would be sent, instead of the video file.
-         * If you have any other better ideas, please let me know.
-         */
-        string? videoPath = null;
-        foreach (var filePath in Directory.GetFiles(DownloadFolder, $"{runFetch.ID}.*"))
-        {
-            if (!new FileExtensionContentTypeProvider().TryGetContentType(filePath, out var contentType) ||
-                !contentType.StartsWith("video"))
-                continue;
-
-            videoPath = filePath;
-            break;
-        }
-        if (videoPath is null)
-        {
-            await FollowupAsync("Couldn't process video",
-                ephemeral: true,
-                options: Options);
-            return;
-        }
-
-        var videoSize = new FileInfo(videoPath).Length / 1048576f;
-        if (videoSize > 1024)
-        {
-            File.Delete(videoPath);
-            await FollowupAsync("Video is too big.\nThe video needs to be smaller than 1GB",
-                ephemeral: true,
-                options: Options);
-            Log.Warning("[{Source}] {File} is too big",
-                MethodBase.GetCurrentMethod()?.Name,
-                runFetch.ID);
-            return;
-        }
-
-        await UploadFile(videoSize, videoPath, Context);
     }
 }

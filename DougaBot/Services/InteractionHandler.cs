@@ -16,6 +16,7 @@ public class InteractionHandler
     private readonly InteractionService _commands;
     private readonly IServiceProvider _services;
     private readonly AsyncKeyedLocker<string> _asyncKeyedLocker;
+    private readonly GlobalTasks _globalTasks;
 
     private static readonly bool IosCompatibility = Convert.ToBoolean(Environment.GetEnvironmentVariable("IOS_COMPATIBILITY"));
 
@@ -39,12 +40,13 @@ public class InteractionHandler
     }
 
     // Using constructor injection
-    public InteractionHandler(DiscordSocketClient discordClient, InteractionService commands, IServiceProvider services, AsyncKeyedLocker<string> asyncKeyedLocker)
+    public InteractionHandler(DiscordSocketClient discordClient, InteractionService commands, IServiceProvider services, AsyncKeyedLocker<string> asyncKeyedLocker, GlobalTasks globalTasks)
     {
         _discordClient = discordClient;
         _commands = commands;
         _services = services;
         _asyncKeyedLocker = asyncKeyedLocker;
+        _globalTasks = globalTasks;
     }
 
     public async Task InitializeAsync()
@@ -170,10 +172,10 @@ public class InteractionHandler
         }
     }
 
-    private static async Task SlashCommandExecuted(SlashCommandInfo arg1, IInteractionContext arg2, IResult arg3)
+    private async Task SlashCommandExecuted(SlashCommandInfo arg1, IInteractionContext arg2, IResult arg3)
     {
         if (arg3 is { IsSuccess: false, Error: InteractionCommandError.UnmetPrecondition })
-            await arg2.Interaction.RespondAsync(arg3.ErrorReason, ephemeral: true, options: Options);
+            await arg2.Interaction.RespondAsync(arg3.ErrorReason, ephemeral: true, options: _globalTasks.ReqOptions);
     }
 
     private async Task HandleInteraction(SocketInteraction interaction)

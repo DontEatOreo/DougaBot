@@ -30,6 +30,7 @@ DougaBot is a [Discord](https://discord.com/) bot written in C# using the [Disco
 - If you set the environment variable `IOS_COMPATIBILITY` to true, DougaBot will automatically convert WebM videos to MP4 in the background to ensure compatibility with iOS devices.
 - To register global commands, ensure that the environment variable `REGISTER_GLOBAL_COMMANDS` is set to true. For first-time bot users, you should set it to true and then set it to false after the commands are registered.
 - Each video is downloaded to the system's default temporary directory.
+- DougaBot will store logs at `LOG_PATH` environment variable. If it is not set, it will default to `./logs`. It rolls everyday and the retention period is 7 files.
 
 ## Running the bot
 - Install [FFmpeg](https://ffmpeg.org/) and [YT-DLP](https://github.com/yt-dlp/yt-dlp)

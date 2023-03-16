@@ -1,111 +1,29 @@
-using System.Globalization;
-using System.Text.RegularExpressions;
 using Discord.Interactions;
 using DougaBot.PreConditions;
-using YoutubeDLSharp.Options;
-using static DougaBot.GlobalTasks;
-using static DougaBot.PreConditions.RateLimitAttribute;
+using JetBrains.Annotations;
 
 namespace DougaBot.Modules.TopLevel;
 
-public sealed partial class TopLevel
+public sealed partial class TopLevelGroup
 {
-    [GeneratedRegex(@"^\d{1,6}(\.\d{1,2})?")]
-    private static partial Regex TrimTimeRegex();
-
-    /// <summary>
-    /// Trim a video or audio
-    /// </summary>
-    [RateLimit(15)]
+    [UsedImplicitly]
+    [RateLimit(15, RateLimitAttribute.RateLimitType.Global)]
     [SlashCommand("trim", "Trim a video or audio")]
     public async Task TrimCommand(string url,
         [Summary(description: "Format: ss.ms (seconds.milliseconds)")] string startTime,
         [Summary(description: "Format: ss.ms (seconds.milliseconds)")] string endTime)
-        => await DeferAsync(options: Options)
-            .ContinueWith(_ => QueueHandler(url,
-                OperationType.Trim, new TrimParams
-                {
-                    StartTime = startTime,
-                    EndTime = endTime
-                }));
-
-    public async Task TrimTask(string url, string startTime, string endTime)
     {
-        var startTimeFloat = float.Parse(startTime, CultureInfo.InvariantCulture);
-        var endTimeFloat = float.Parse(endTime, CultureInfo.InvariantCulture);
+        await DeferAsync(options: _globalTasks.ReqOptions);
+        using var lockAsync = await _asyncKeyedLocker.LockAsync(url).ConfigureAwait(false);
 
-        if (Math.Abs(startTimeFloat - endTimeFloat) < 1)
+        var trimResult = await _trimService.TrimTaskAsync(url, startTime, endTime, Context);
+        if (trimResult is null)
         {
-            await FollowupAsync("Start time and end time cannot be less than 1 second apart",
-                ephemeral: true,
-                options: Options);
+            RateLimitAttribute.ClearRateLimit(Context.User.Id);
             return;
         }
 
-        if (startTimeFloat > endTimeFloat)
-        {
-            await FollowupAsync("Start time cannot be greater than end time");
-            return;
-        }
-
-        var runFetch = await RunFetch(url, TimeSpan.FromHours(2),
-            "Video is too long.\nThe video needs to be shorter than 2 hours",
-            "Could not fetch video data",
-            Context.Interaction);
-        if (runFetch is null)
-            return;
-
-        var videoDuration = runFetch.Duration;
-        if (startTimeFloat > videoDuration)
-        {
-            await FollowupAsync("Start time cannot be greater than video duration",
-                ephemeral: true,
-                options: Options);
-            return;
-        }
-        if (endTimeFloat > videoDuration)
-        {
-            await FollowupAsync("End time cannot be greater than video duration",
-                ephemeral: true,
-                options: Options);
-            return;
-        }
-
-        var folderUuid = Guid.NewGuid().ToString()[..4];
-
-        await FollowupAsync("Please wait while the video is being trimmed...",
-            ephemeral: true,
-            options: Options);
-
-        var downloadArgs =
-            $"*{startTimeFloat.ToString(CultureInfo.InvariantCulture)}-{endTimeFloat.ToString(CultureInfo.InvariantCulture)}";
-        var runDownload = await RunDownload(url,
-            "There was an error trimming.\nPlease try again later",
-            new OptionSet
-            {
-                FormatSort = $"{FormatSort},ext:mp4",
-                DownloadSections = downloadArgs,
-                ForceKeyframesAtCuts = true,
-                NoPlaylist = true,
-                Output = Path.Combine(DownloadFolder, folderUuid, "%(id)s.%(ext)s")
-            }, Context.Interaction);
-
-        if (!runDownload)
-        {
-            ClearRateLimit(Context.User.Id);
-            return;
-        }
-
-        var trimFile = Directory.GetFiles(Path.Combine(DownloadFolder, folderUuid)).FirstOrDefault();
-        if (trimFile is null)
-        {
-            await FollowupAsync("Couldn't process video",
-                ephemeral: true,
-                options: Options);
-            return;
-        }
-
-        var fileSize = new FileInfo(trimFile).Length / 1048576f;
-        await UploadFile(fileSize, trimFile, Context);
+        var fileSize = new FileInfo(trimResult).Length / 1048576f;
+        await _globalTasks.UploadFile(fileSize, trimResult, Context);
     }
 }
