@@ -26,6 +26,7 @@ DougaBot is a [Discord](https://discord.com/) bot written in C# using the [Disco
 
 ## Notes
 
+- By default DougaBot will assume `ffmpeg` and `yt-dlp` are in the path. If they are not, you can set the environment variables `FFMPEG_PATH` and `YTDLP_PATH` to the path of the executables.
 - DougaBot currently only processes the first video or the selected video in a playlist. It **WILL NOT** download, compress, speed up, or trim the entire playlist.
 - If you set the environment variable `IOS_COMPATIBILITY` to true, DougaBot will automatically convert WebM videos to MP4 in the background to ensure compatibility with iOS devices.
 - To register global commands, ensure that the environment variable `REGISTER_GLOBAL_COMMANDS` is set to true. For first-time bot users, you should set it to true and then set it to false after the commands are registered.

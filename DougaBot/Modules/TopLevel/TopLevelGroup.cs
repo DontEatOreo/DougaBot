@@ -6,6 +6,8 @@ namespace DougaBot.Modules.TopLevel;
 
 public sealed partial class TopLevelGroup : InteractionModuleBase<SocketInteractionContext>
 {
+    #region Constructor
+
     private readonly ISpeedService _speedService;
     private readonly ITrimService _trimService;
     private readonly AsyncKeyedLocker<string> _asyncKeyedLocker;
@@ -21,4 +23,5 @@ public sealed partial class TopLevelGroup : InteractionModuleBase<SocketInteract
         _trimService = trimService;
         _globalTasks = globalTasks;
     }
+    #endregion
 }

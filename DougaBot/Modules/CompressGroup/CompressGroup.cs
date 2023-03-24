@@ -9,12 +9,11 @@ namespace DougaBot.Modules.CompressGroup;
  Group("compress", "Group of commands for compression")]
 public sealed partial class CompressGroup : InteractionModuleBase<SocketInteractionContext>
 {
+    #region Constructor
+
     private readonly AsyncKeyedLocker<string> _asyncKeyedLocker;
-
     private readonly IVideoService _videoService;
-
     private readonly IAudioService _audioService;
-
     private readonly GlobalTasks _globalTasks;
 
     public CompressGroup(AsyncKeyedLocker<string> asyncKeyedLocker,
@@ -27,6 +26,8 @@ public sealed partial class CompressGroup : InteractionModuleBase<SocketInteract
         _audioService = audioService;
         _globalTasks = globalTasks;
     }
+
+    #endregion
 
     private string Key => $"{Context.Guild.Id.ToString()}";
 }

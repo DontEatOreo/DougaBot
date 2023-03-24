@@ -7,6 +7,8 @@ namespace DougaBot.Modules.DownloadGroup;
 [RateLimit, Group("download", "Group of commands for downloading")]
 public sealed partial class DownloadGroup : InteractionModuleBase<SocketInteractionContext>
 {
+    #region Constructor
+
     private readonly IAudioService _audioService;
 
     private readonly IVideoService _videoService;
@@ -19,4 +21,6 @@ public sealed partial class DownloadGroup : InteractionModuleBase<SocketInteract
         _videoService = videoService;
         _globalTasks = globalTasks;
     }
+
+    #endregion
 }

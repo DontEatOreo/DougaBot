@@ -12,15 +12,38 @@ namespace DougaBot.Services;
 
 public class InteractionHandler
 {
+    #region Constructor
+
     private readonly DiscordSocketClient _discordClient;
     private readonly InteractionService _commands;
     private readonly IServiceProvider _services;
     private readonly AsyncKeyedLocker<string> _asyncKeyedLocker;
     private readonly GlobalTasks _globalTasks;
 
+    public InteractionHandler(DiscordSocketClient discordClient,
+        InteractionService commands,
+        IServiceProvider services,
+        AsyncKeyedLocker<string> asyncKeyedLocker,
+        GlobalTasks globalTasks)
+    {
+        _discordClient = discordClient;
+        _commands = commands;
+        _services = services;
+        _asyncKeyedLocker = asyncKeyedLocker;
+        _globalTasks = globalTasks;
+    }
+
+    #endregion
+
+    #region Fields
+
     private static readonly bool IosCompatibility = Convert.ToBoolean(Environment.GetEnvironmentVariable("IOS_COMPATIBILITY"));
 
     private const string WebMQueueKey = "WebMQueueKey";
+
+    #endregion
+
+    #region Methods
 
     private async Task VideoQueueHandler(SocketMessage message, List<Attachment> attachments)
     {
@@ -37,16 +60,6 @@ public class InteractionHandler
                 MethodBase.GetCurrentMethod()?.DeclaringType?.Name,
                 $"{message.Author.Username}#{message.Author.Discriminator} has unlocked: {attachment.Url}");
         }
-    }
-
-    // Using constructor injection
-    public InteractionHandler(DiscordSocketClient discordClient, InteractionService commands, IServiceProvider services, AsyncKeyedLocker<string> asyncKeyedLocker, GlobalTasks globalTasks)
-    {
-        _discordClient = discordClient;
-        _commands = commands;
-        _services = services;
-        _asyncKeyedLocker = asyncKeyedLocker;
-        _globalTasks = globalTasks;
     }
 
     public async Task InitializeAsync()
@@ -199,4 +212,6 @@ public class InteractionHandler
                     .ContinueWith(async msg => await msg.Result.DeleteAsync());
         }
     }
+
+    #endregion
 }

@@ -8,12 +8,18 @@ namespace DougaBot.Services;
 
 public class TrimService : InteractionModuleBase<SocketInteractionContext>, ITrimService
 {
+    #region Constructor
+
     private readonly GlobalTasks _globalTasks;
 
     public TrimService(GlobalTasks globalTasks)
     {
         _globalTasks = globalTasks;
     }
+
+    #endregion
+
+    #region Methods
 
     public async Task<string?>
         TrimTaskAsync(string url, string startTime, string endTime, SocketInteractionContext context)
@@ -95,4 +101,6 @@ public class TrimService : InteractionModuleBase<SocketInteractionContext>, ITri
             options: _globalTasks.ReqOptions);
         return default;
     }
+
+    #endregion
 }

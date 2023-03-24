@@ -26,6 +26,8 @@ public class VideoService : InteractionModuleBase<SocketInteractionContext>, IVi
 
     private readonly bool _iOsCompatible = Convert.ToBoolean(Environment.GetEnvironmentVariable("IOS_COMPATIBLE"));
 
+    #region Constructor
+
     private readonly IContentTypeProvider _contentTypeProvider;
     private readonly GlobalTasks _globalTasks;
 
@@ -34,6 +36,10 @@ public class VideoService : InteractionModuleBase<SocketInteractionContext>, IVi
         _contentTypeProvider = contentTypeProvider;
         _globalTasks = globalTasks;
     }
+
+    #endregion
+
+    #region Methods
 
     public async ValueTask<(string? filePath, string? compressPath, string? resolution, bool resolutionChange, SocketInteractionContext? context)>
         DownloadVideoAsync(IAttachment? attachment, string? url, string? resolution, SocketInteractionContext context)
@@ -203,4 +209,6 @@ public class VideoService : InteractionModuleBase<SocketInteractionContext>, IVi
         videoStream.SetSize(inputWidth, inputHeight);
         return default;
     }
+
+    #endregion
 }

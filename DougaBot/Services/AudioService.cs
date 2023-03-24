@@ -11,6 +11,8 @@ namespace DougaBot.Services;
 
 public class AudioService : InteractionModuleBase<SocketInteractionContext>, IAudioService
 {
+    #region Constructor
+
     private readonly GlobalTasks _globalTasks;
 
     public AudioService(GlobalTasks globalTasks)
@@ -18,6 +20,9 @@ public class AudioService : InteractionModuleBase<SocketInteractionContext>, IAu
         _globalTasks = globalTasks;
     }
 
+    #endregion
+
+    #region Methods
     public async ValueTask<(string? filePath, string? compressPath, SocketInteractionContext? context)>
         DownloadAudioAsync(IAttachment? attachment, string? url, SocketInteractionContext context)
     {
@@ -109,4 +114,6 @@ public class AudioService : InteractionModuleBase<SocketInteractionContext>, IAu
             compressPath);
         return default;
     }
+
+    #endregion
 }

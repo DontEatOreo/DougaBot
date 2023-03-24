@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text.RegularExpressions;
 using Discord;
 using Discord.Interactions;
@@ -12,15 +13,6 @@ namespace DougaBot;
 
 public partial class GlobalTasks
 {
-    [GeneratedRegex("https?:\\/\\/[^\\s]+")]
-    private static partial Regex HttpRegex();
-
-    public readonly RequestOptions ReqOptions = new()
-    {
-        Timeout = 3000,
-        RetryMode = RetryMode.AlwaysRetry
-    };
-
     #region Constructor
 
     private readonly IHttpClientFactory _httpClient;
@@ -34,9 +26,28 @@ public partial class GlobalTasks
 
     #region Strings
 
+    public const string FormatSort = "res:720";
+
     private const string UploadApiLink = "https://litterbox.catbox.moe/resources/internals/api.php";
 
+    private static readonly string FFmpegPath = Environment.GetEnvironmentVariable("FFMPEG_PATH") ?? "ffmpeg";
+
+    private static readonly string YtdlpPath = Environment.GetEnvironmentVariable("YTDLP_PATH") ?? "yt-dlp";
+
     public static readonly string DownloadFolder = Path.GetTempPath();
+
+    #endregion
+
+    #region Fields
+
+    [GeneratedRegex("https?:\\/\\/[^\\s]+")]
+    private static partial Regex HttpRegex();
+
+    public readonly RequestOptions ReqOptions = new()
+    {
+        Timeout = 3000,
+        RetryMode = RetryMode.AlwaysRetry
+    };
 
     public static readonly Dictionary<PremiumTier, float> MaxFileSizes = new()
     {
@@ -48,18 +59,16 @@ public partial class GlobalTasks
 
     public static readonly YoutubeDL YoutubeDl = new()
     {
-        FFmpegPath = "ffmpeg",
-        YoutubeDLPath = "yt-dlp",
+        FFmpegPath = FFmpegPath,
+        YoutubeDLPath = YtdlpPath,
         OverwriteFiles = false,
         OutputFileTemplate = "%(id)s.%(ext)s",
         OutputFolder = DownloadFolder
     };
 
-    public const string FormatSort = "res:720";
-
     #endregion
 
-    #region GlobalMethods
+    #region Methods
 
     /// <summary>
     /// Uploads the file either directly (if below maxFileSize) or provides a download link.
@@ -72,7 +81,7 @@ public partial class GlobalTasks
         else
         {
             await using var fileStream = File.OpenRead(filePath);
-            var uploadFileRequest = new MultipartFormDataContent
+            MultipartFormDataContent uploadFileRequest = new()
             {
                 { new StringContent("fileupload"), "reqtype" },
                 { new StringContent("24h"), "time" },
@@ -145,6 +154,52 @@ public partial class GlobalTasks
 
         await interaction.FollowupAsync(downloadErrorMessage, ephemeral: true, options: ReqOptions);
         return false;
+    }
+
+    public static Task CheckForFFmpeg()
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = FFmpegPath,
+                Arguments = "-version",
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            });
+        }
+        catch (Exception e)
+        {
+            Log.Error(e, "FFmpeg not found");
+            Environment.Exit(1);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    public static Task CheckForYtdlp()
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = YtdlpPath,
+                Arguments = "--version",
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            });
+        }
+        catch (Exception e)
+        {
+            Log.Error(e, "yt-dlp not found");
+            Environment.Exit(1);
+        }
+
+        return Task.CompletedTask;
     }
 
     public static Task LogAsync(LogMessage message)

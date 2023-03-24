@@ -9,6 +9,9 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Serilog;
 
+await GlobalTasks.CheckForYtdlp();
+await GlobalTasks.CheckForFFmpeg();
+
 var host = Host.CreateDefaultBuilder()
     .ConfigureServices(
         (_, services) =>
