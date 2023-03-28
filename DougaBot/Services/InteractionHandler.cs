@@ -45,7 +45,7 @@ public class InteractionHandler
 
     #region Methods
 
-    private async Task VideoQueueHandler(SocketMessage message, List<Attachment> attachments)
+    private async ValueTask VideoQueueHandler(SocketMessage message, List<Attachment> attachments)
     {
         using var _ = await _asyncKeyedLocker.LockAsync(WebMQueueKey).ConfigureAwait(false);
         foreach (var attachment in attachments)
@@ -94,6 +94,7 @@ public class InteractionHandler
 
         return Task.CompletedTask;
     }
+
     /// <summary>
     ///  This purely exist because iOS doesn't support WebM.
     /// Converts VP9 (Webm) videos to H264 (MP4) automatically in the background.
@@ -181,14 +182,15 @@ public class InteractionHandler
         {
             await message.Channel.SendFileAsync(afterVideo,
                 messageReference: new MessageReference(message.Id,
-                    failIfNotExists: false));
+                    failIfNotExists: false))
+                .ConfigureAwait(false);
         }
     }
 
     private async Task SlashCommandExecuted(SlashCommandInfo arg1, IInteractionContext arg2, IResult arg3)
     {
         if (arg3 is { IsSuccess: false, Error: InteractionCommandError.UnmetPrecondition })
-            await arg2.Interaction.RespondAsync(arg3.ErrorReason, ephemeral: true, options: _globalTasks.ReqOptions);
+            await arg2.Interaction.RespondAsync(arg3.ErrorReason, ephemeral: true, options: _globalTasks.ReqOptions).ConfigureAwait(false);
     }
 
     private async Task HandleInteraction(SocketInteraction interaction)
@@ -198,7 +200,6 @@ public class InteractionHandler
             // Create an execution context that matches the generic type parameter of your InteractionModuleBase<T> modules
             var ctx = new SocketInteractionContext(_discordClient, interaction);
             await _commands.ExecuteCommandAsync(ctx, _services);
-
         }
         catch (Exception ex)
         {

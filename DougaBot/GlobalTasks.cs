@@ -96,7 +96,8 @@ public partial class GlobalTasks
                         style: ButtonStyle.Link,
                         emote: new Emoji("🔗"),
                         url: fileLink)
-                    .Build());
+                    .Build())
+                .ConfigureAwait(false);
         }
     }
 
@@ -132,14 +133,20 @@ public partial class GlobalTasks
         var runDataFetch = await YoutubeDl.RunVideoDataFetch(url);
         if (!runDataFetch.Success)
         {
-            await interaction.FollowupAsync(dataFetchErrorMessage, ephemeral: true, options: ReqOptions);
+            await interaction.FollowupAsync(dataFetchErrorMessage,
+                    ephemeral: true,
+                    options: ReqOptions)
+                .ConfigureAwait(false);
             return null;
         }
 
         if (!(runDataFetch.Data.Duration > durationLimit.TotalSeconds))
             return runDataFetch.Data;
 
-        await interaction.FollowupAsync(durationErrorMessage, ephemeral: true, options: ReqOptions);
+        await interaction.FollowupAsync(durationErrorMessage,
+                ephemeral: true,
+                options: ReqOptions)
+            .ConfigureAwait(false);
         return null;
     }
 
@@ -152,9 +159,14 @@ public partial class GlobalTasks
         if (runResult.Success)
             return true;
 
-        await interaction.FollowupAsync(downloadErrorMessage, ephemeral: true, options: ReqOptions);
+        await interaction.FollowupAsync(downloadErrorMessage,
+                ephemeral: true,
+                options: ReqOptions)
+            .ConfigureAwait(false);
         return false;
     }
+
+    #region Checks
 
     public static Task CheckForFFmpeg()
     {
@@ -201,6 +213,8 @@ public partial class GlobalTasks
 
         return Task.CompletedTask;
     }
+
+    #endregion
 
     public static Task LogAsync(LogMessage message)
     {

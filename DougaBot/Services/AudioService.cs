@@ -23,18 +23,25 @@ public class AudioService : InteractionModuleBase<SocketInteractionContext>, IAu
     #endregion
 
     #region Methods
+
     public async ValueTask<(string? filePath, string? compressPath, SocketInteractionContext? context)>
         DownloadAudioAsync(IAttachment? attachment, string? url, SocketInteractionContext context)
     {
         if (url is null && attachment is null)
         {
-            await FollowupAsync("You need to provide either a url or an attachment", ephemeral: true, options: _globalTasks.ReqOptions);
+            await FollowupAsync("You need to provide either a url or an attachment",
+                ephemeral: true,
+                options: _globalTasks.ReqOptions)
+                .ConfigureAwait(false);
             RateLimitAttribute.ClearRateLimit(context.User.Id);
             return default;
         }
         if (url is not null && attachment is not null)
         {
-            await FollowupAsync("You can't provide both a url and an attachment", ephemeral: true, options: _globalTasks.ReqOptions);
+            await FollowupAsync("You can't provide both a url and an attachment",
+                ephemeral: true,
+                options: _globalTasks.ReqOptions)
+                .ConfigureAwait(false);
             RateLimitAttribute.ClearRateLimit(context.User.Id);
             return default;
         }
@@ -83,7 +90,8 @@ public class AudioService : InteractionModuleBase<SocketInteractionContext>, IAu
             File.Delete(filePath);
             await FollowupAsync("No audio streams found",
                 ephemeral: true,
-                options: _globalTasks.ReqOptions);
+                options: _globalTasks.ReqOptions)
+                .ConfigureAwait(false);
             Log.Warning("[{Source}] {File} has no audio streams found",
                 MethodBase.GetCurrentMethod()?.DeclaringType?.Name,
                 filePath);
@@ -108,7 +116,9 @@ public class AudioService : InteractionModuleBase<SocketInteractionContext>, IAu
         File.Delete(compressPath);
         await FollowupAsync("The Audio needs to be shorter than 2 hours",
             ephemeral: true,
-            options: _globalTasks.ReqOptions);
+            options: _globalTasks.ReqOptions)
+            .ConfigureAwait(false);
+
         Log.Warning("[{Source}] {File} is longer than 2 hours",
             MethodBase.GetCurrentMethod()?.DeclaringType?.Name,
             compressPath);

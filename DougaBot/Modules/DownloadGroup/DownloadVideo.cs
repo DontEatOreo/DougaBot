@@ -42,7 +42,8 @@ public sealed partial class DownloadGroup
                 {
                     await FollowupAsync("Invalid file type",
                         ephemeral: true,
-                        options: _globalTasks.ReqOptions);
+                        options: _globalTasks.ReqOptions)
+                        .ConfigureAwait(false);
                     return;
                 }
 

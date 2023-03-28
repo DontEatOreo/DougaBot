@@ -91,9 +91,12 @@ public class VideoService : InteractionModuleBase<SocketInteractionContext>, IVi
         if (videoStream is null)
         {
             File.Delete(videoPath);
+
             await FollowupAsync("Could not find video stream",
                 ephemeral: true,
-                options: _globalTasks.ReqOptions);
+                options: _globalTasks.ReqOptions)
+                .ConfigureAwait(false);
+
             Log.Warning("[{Source}] {File} has no video streams found",
                 MethodBase.GetCurrentMethod()?.DeclaringType?.Name,
                 videoPath);
@@ -106,7 +109,8 @@ public class VideoService : InteractionModuleBase<SocketInteractionContext>, IVi
         await FollowupAsync("Video is too long.\n" +
                             "The video needs to be shorter than 4 minutes",
             ephemeral: true,
-            options: _globalTasks.ReqOptions);
+            options: _globalTasks.ReqOptions)
+            .ConfigureAwait(false);
         return default;
     }
 
@@ -124,9 +128,12 @@ public class VideoService : InteractionModuleBase<SocketInteractionContext>, IVi
         if (videoStream is null)
         {
             File.Delete(videoPath);
+
             await FollowupAsync("Could not find video stream",
                 ephemeral: true,
-                options: _globalTasks.ReqOptions);
+                options: _globalTasks.ReqOptions)
+                .ConfigureAwait(false);
+
             Log.Warning("[{Source}] {File} has no video streams found",
                 MethodBase.GetCurrentMethod()?.DeclaringType?.Name,
                 videoPath);
@@ -167,7 +174,9 @@ public class VideoService : InteractionModuleBase<SocketInteractionContext>, IVi
         Log.Information("[{Source}] Starting conversion of {File}",
             MethodBase.GetCurrentMethod()?.DeclaringType?.Name,
             videoPath);
+
         await conversion.Start();
+
         Log.Information("[{Source}] Finished conversion of {File}",
             MethodBase.GetCurrentMethod()?.DeclaringType?.Name,
             videoPath);

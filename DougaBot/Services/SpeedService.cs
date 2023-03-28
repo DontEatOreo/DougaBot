@@ -1,7 +1,6 @@
 using Discord.Interactions;
 using DougaBot.PreConditions;
 using Serilog;
-using Serilog.Events;
 using Xabe.FFmpeg;
 using YoutubeDLSharp.Options;
 using static DougaBot.GlobalTasks;
@@ -10,12 +9,18 @@ namespace DougaBot.Services;
 
 public class SpeedService : InteractionModuleBase<SocketInteractionContext>, ISpeedService
 {
+    #region Constructor
+
     private readonly GlobalTasks _globalTasks;
 
     public SpeedService(GlobalTasks globalTasks)
     {
         _globalTasks = globalTasks;
     }
+
+    #endregion
+
+    #region Methods
 
     public async Task<string?> SpeedTaskAsync(string url, double speed, SocketInteractionContext context)
     {
@@ -54,7 +59,8 @@ public class SpeedService : InteractionModuleBase<SocketInteractionContext>, ISp
         {
             await FollowupAsync("Couldn't speed up the file\nPlease try again later",
                 ephemeral: true,
-                options: _globalTasks.ReqOptions);
+                options: _globalTasks.ReqOptions)
+                .ConfigureAwait(false);
             return default;
         }
         var afterFile = Path.Combine(DownloadFolder, folderUuid, $"{runFetch.ID}.mp4");
@@ -107,11 +113,15 @@ public class SpeedService : InteractionModuleBase<SocketInteractionContext>, ISp
         if (videoStream is not null)
             await context.Interaction.FollowupAsync("The Video needs to be shorter than 2 hours",
                 ephemeral: true,
-                options: _globalTasks.ReqOptions);
+                options: _globalTasks.ReqOptions)
+                .ConfigureAwait(false);
         else
             await context.Interaction.FollowupAsync("The Audio needs to be shorter than 2 hours",
                 ephemeral: true,
-                options: _globalTasks.ReqOptions);
+                options: _globalTasks.ReqOptions)
+                .ConfigureAwait(false);
         return default;
     }
+
+    #endregion
 }

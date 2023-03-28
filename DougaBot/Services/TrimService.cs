@@ -31,13 +31,15 @@ public class TrimService : InteractionModuleBase<SocketInteractionContext>, ITri
         {
             await FollowupAsync("Start time and end time cannot be less than 1 second apart",
                 ephemeral: true,
-                options: _globalTasks.ReqOptions);
+                options: _globalTasks.ReqOptions)
+                .ConfigureAwait(false);
             return default;
         }
 
         if (startTimeFloat > endTimeFloat)
         {
-            await FollowupAsync("Start time cannot be greater than end time");
+            await FollowupAsync("Start time cannot be greater than end time")
+                .ConfigureAwait(false);
             return default;
         }
 
@@ -56,14 +58,16 @@ public class TrimService : InteractionModuleBase<SocketInteractionContext>, ITri
         {
             await context.Interaction.FollowupAsync("Start time cannot be greater than video duration",
                 ephemeral: true,
-                options: _globalTasks.ReqOptions);
+                options: _globalTasks.ReqOptions)
+                .ConfigureAwait(false);
             return default;
         }
         if (endTimeFloat > videoDuration)
         {
             await context.Interaction.FollowupAsync("End time cannot be greater than video duration",
                 ephemeral: true,
-                options: _globalTasks.ReqOptions);
+                options: _globalTasks.ReqOptions)
+                .ConfigureAwait(false);
             return default;
         }
 
@@ -71,7 +75,8 @@ public class TrimService : InteractionModuleBase<SocketInteractionContext>, ITri
 
         await context.Interaction.FollowupAsync("Please wait while the video is being trimmed...",
             ephemeral: true,
-            options: _globalTasks.ReqOptions);
+            options: _globalTasks.ReqOptions)
+            .ConfigureAwait(false);
 
         var downloadArgs =
             $"*{startTimeFloat.ToString(CultureInfo.InvariantCulture)}-{endTimeFloat.ToString(CultureInfo.InvariantCulture)}";
@@ -98,7 +103,8 @@ public class TrimService : InteractionModuleBase<SocketInteractionContext>, ITri
 
         await context.Interaction.FollowupAsync("Couldn't process video",
             ephemeral: true,
-            options: _globalTasks.ReqOptions);
+            options: _globalTasks.ReqOptions)
+            .ConfigureAwait(false);
         return default;
     }
 

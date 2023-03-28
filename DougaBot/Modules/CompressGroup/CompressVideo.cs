@@ -29,7 +29,8 @@ public sealed partial class CompressGroup
         {
             await FollowupAsync("You need to provide either a url or an attachment",
                 ephemeral: true,
-                options: _globalTasks.ReqOptions);
+                options: _globalTasks.ReqOptions)
+                .ConfigureAwait(false);
             RateLimitAttribute.ClearRateLimit(Context.User.Id);
             return;
         }
@@ -37,7 +38,8 @@ public sealed partial class CompressGroup
         {
             await FollowupAsync("You can't provide both a url and an attachment",
                 ephemeral: true,
-                options: _globalTasks.ReqOptions);
+                options: _globalTasks.ReqOptions)
+                .ConfigureAwait(false);
             RateLimitAttribute.ClearRateLimit(Context.User.Id);
             return;
         }
@@ -49,7 +51,8 @@ public sealed partial class CompressGroup
             await FollowupAsync(
                 $"Your video is in position {_asyncKeyedLocker.GetRemainingCount(Key)} in the queue.",
                 ephemeral: true,
-                options: _globalTasks.ReqOptions);
+                options: _globalTasks.ReqOptions)
+                .ConfigureAwait(false);
         }
 
         var downloadResult = await _videoService.DownloadVideoAsync(attachment, url, resolution, Context);
