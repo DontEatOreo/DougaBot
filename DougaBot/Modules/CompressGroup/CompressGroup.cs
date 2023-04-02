@@ -1,7 +1,8 @@
 using AsyncKeyedLock;
 using Discord.Interactions;
 using DougaBot.PreConditions;
-using DougaBot.Services;
+using DougaBot.Services.Audio;
+using DougaBot.Services.Video;
 
 namespace DougaBot.Modules.CompressGroup;
 

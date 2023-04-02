@@ -45,7 +45,7 @@ public class InteractionHandler
 
     #region Methods
 
-    private async ValueTask VideoQueueHandler(SocketMessage message, List<Attachment> attachments)
+    private async Task VideoQueueHandler(SocketMessage message, List<Attachment> attachments)
     {
         using var _ = await _asyncKeyedLocker.LockAsync(WebMQueueKey).ConfigureAwait(false);
         foreach (var attachment in attachments)

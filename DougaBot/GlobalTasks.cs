@@ -73,7 +73,7 @@ public partial class GlobalTasks
     /// <summary>
     /// Uploads the file either directly (if below maxFileSize) or provides a download link.
     /// </summary>
-    public async Task UploadFile(float fileSize, string filePath, SocketInteractionContext interactionContext)
+    public async ValueTask UploadFile(float fileSize, string filePath, SocketInteractionContext interactionContext)
     {
         var maxFileSize = MaxFileSizes[interactionContext.Guild.PremiumTier];
         if (fileSize <= maxFileSize)
@@ -88,7 +88,7 @@ public partial class GlobalTasks
                 { new StreamContent(fileStream), "fileToUpload", filePath }
             };
             using var client = _httpClient.CreateClient();
-            var uploadFilePost = await client.PostAsync(UploadApiLink, uploadFileRequest);
+            var uploadFilePost = await client.PostAsync(UploadApiLink, uploadFileRequest).ConfigureAwait(false);
             var fileLink = await uploadFilePost.Content.ReadAsStringAsync();
             await interactionContext.Interaction.FollowupAsync("The download link will **EXPIRE in 24 hours.**",
                 options: ReqOptions,
@@ -104,7 +104,7 @@ public partial class GlobalTasks
     /// <summary>
     /// Extracts the URL from the given message.
     /// </summary>
-    public async Task<string?> ExtractUrl(string? message, SocketInteraction interaction)
+    public async ValueTask<string?> ExtractUrl(string? message, SocketInteraction interaction)
     {
         if (message is null)
             return null;
@@ -124,7 +124,7 @@ public partial class GlobalTasks
     /// <summary>
     /// Fetches video data and checks if the duration is within the limit.
     /// </summary>
-    public async Task<VideoData?> RunFetch(string? url,
+    public async ValueTask<VideoData?> RunFetch(string? url,
         TimeSpan durationLimit,
         string durationErrorMessage,
         string dataFetchErrorMessage,
@@ -150,7 +150,7 @@ public partial class GlobalTasks
         return null;
     }
 
-    public async Task<bool> RunDownload(string? url,
+    public async ValueTask<bool> RunDownload(string? url,
         string downloadErrorMessage,
         OptionSet optionSet,
         SocketInteraction interaction)

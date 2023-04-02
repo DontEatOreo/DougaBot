@@ -4,6 +4,8 @@ using Discord.Interactions;
 using Discord.WebSocket;
 using DougaBot;
 using DougaBot.Services;
+using DougaBot.Services.Audio;
+using DougaBot.Services.Video;
 using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
