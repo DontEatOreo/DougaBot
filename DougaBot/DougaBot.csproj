@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <TargetFramework>net7.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+        <PackageProjectUrl>https://github.com/DontEatOreo/DougaBot</PackageProjectUrl>
+        <Authors>DontEatOreo</Authors>
+        <Version>1.0.0</Version>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <PackageReference Include="AsyncKeyedLock" Version="6.2.1" />
+      <PackageReference Include="Discord.Net.Interactions" Version="3.10.0" />
+      <PackageReference Include="Discord.Net.WebSocket" Version="3.10.0" />
+      <PackageReference Include="JetBrains.Annotations" Version="2023.2.0-eap1" />
+      <PackageReference Include="Microsoft.AspNetCore.StaticFiles" Version="2.2.0" />
+      <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.0-preview.3.23174.8" />
+      <PackageReference Include="Serilog.AspNetCore" Version="6.1.1-dev-00295" />
+      <PackageReference Include="Xabe.FFmpeg" Version="5.2.6" />
+      <PackageReference Include="YoutubeDLSharp" Version="1.0.0-beta6" />
+    </ItemGroup>
+
+</Project>
