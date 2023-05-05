@@ -2,6 +2,7 @@ using System.Diagnostics;
 using Discord;
 using Discord.Interactions;
 using Discord.WebSocket;
+using DougaBot.Services.Video;
 using Serilog;
 using Serilog.Events;
 using YoutubeDLSharp;
@@ -14,14 +15,14 @@ public class Globals
 {
     #region Constructor
 
-    private readonly IHttpClientFactory _clientFactory;
+    private readonly CatBoxHttpClient _catBoxHttp;
     private readonly ILogger _logger;
     public readonly YoutubeDL YoutubeDl;
 
-    public Globals(IHttpClientFactory clientFactory, ILogger logger)
+    public Globals(ILogger logger, CatBoxHttpClient catBoxHttp)
     {
-        _clientFactory = clientFactory;
         _logger = logger;
+        _catBoxHttp = catBoxHttp;
         YoutubeDl = new YoutubeDL
         {
             FFmpegPath = FFmpegPath,
@@ -35,8 +36,6 @@ public class Globals
     #endregion
 
     #region Strings
-
-    private const string UploadApiLink = "https://litterbox.catbox.moe/resources/internals/api.php";
 
     private static readonly string FFmpegPath = Environment.GetEnvironmentVariable("FFMPEG_PATH") ?? "ffmpeg";
 
@@ -71,8 +70,6 @@ public class Globals
 
     #endregion
 
-    #region Methods
-
     /// <summary>
     /// Uploads a file to the server or an api
     /// </summary>
@@ -87,28 +84,18 @@ public class Globals
             await context.Interaction.FollowupWithFileAsync(path, options: ReqOptions).ConfigureAwait(false);
             return;
         }
-
-        await using var stream = File.OpenRead(path);
-        using MultipartFormDataContent uploadRequest = new()
-        {
-            { new StringContent("fileupload"), "reqtype" },
-            { new StringContent("24h"), "time" },
-            { new StreamContent(stream), "fileToUpload", path }
-        };
-        using var client = _clientFactory.CreateClient();
-        using var uploadFilePost = await client.PostAsync(UploadApiLink, uploadRequest).ConfigureAwait(false);
-        var fileLink = await uploadFilePost.Content.ReadAsStringAsync().ConfigureAwait(false);
-
+        var fileLink = await _catBoxHttp.UploadFile(path);
         var component = new ComponentBuilder().WithButton("Download",
                 style: ButtonStyle.Link,
                 emote: new Emoji("🔗"),
                 url: fileLink)
             .Build();
         await context.Interaction.FollowupAsync("The download link will **EXPIRE in 24 hours.**",
-                options: ReqOptions,
-                components: component)
-            .ConfigureAwait(false);
+            options: ReqOptions,
+            components: component);
     }
+
+    #region Methods
 
     /// <summary>
     /// Fetches video data and checks if the duration is within the limit.
@@ -119,7 +106,7 @@ public class Globals
         string dataFetchErrorMessage,
         SocketInteraction interaction)
     {
-        var runDataFetch = await YoutubeDl.RunVideoDataFetch(url).ConfigureAwait(false);
+        var runDataFetch = await YoutubeDl.RunVideoDataFetch(url);
         if (!runDataFetch.Success)
         {
             await interaction.FollowupAsync(dataFetchErrorMessage,

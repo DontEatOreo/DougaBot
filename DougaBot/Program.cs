@@ -28,9 +28,9 @@ var host = Host.CreateDefaultBuilder()
     .ConfigureServices(
         (_, services) =>
         {
-            services.AddHttpClient();
+            services.AddHttpClient<CatBoxHttpClient>();
             services.AddSingleton(_ => new DiscordSocketClient(socketConfig));
-            services.AddSingleton(x => new InteractionService(x.GetRequiredService<DiscordSocketClient>()));
+            services.AddSingleton<InteractionService>();
             services.AddSingleton<InteractionHandler>();
             services.AddSingleton<Globals>();
             services.AddSingleton<RateLimitService>();
@@ -67,7 +67,7 @@ using var serviceScope = host.Services.CreateScope();
 var provider = serviceScope.ServiceProvider;
 var interactionService = provider.GetRequiredService<InteractionService>();
 var socketClient = provider.GetRequiredService<DiscordSocketClient>();
-await provider.GetRequiredService<InteractionHandler>().InitializeAsync().ConfigureAwait(false);
+await provider.GetRequiredService<InteractionHandler>().InitializeAsync();
 
 var globalTasks = provider.GetRequiredService<Globals>();
 
@@ -76,8 +76,8 @@ interactionService.Log += globalTasks.LogAsync;
 
 // Registers commands globally
 if (Convert.ToBoolean(Environment.GetEnvironmentVariable("REGISTER_GLOBAL_COMMANDS")))
-    socketClient.Ready += async () => await interactionService.RegisterCommandsGloballyAsync().ConfigureAwait(false);
+    socketClient.Ready += async () => await interactionService.RegisterCommandsGloballyAsync();
 
-await socketClient.LoginAsync(TokenType.Bot, Environment.GetEnvironmentVariable("DOUGA_TOKEN")).ConfigureAwait(false);
-await socketClient.StartAsync().ConfigureAwait(false);
-await Task.Delay(-1).ConfigureAwait(false);
+await socketClient.LoginAsync(TokenType.Bot, Environment.GetEnvironmentVariable("DOUGA_TOKEN"));
+await socketClient.StartAsync();
+await Task.Delay(-1);
