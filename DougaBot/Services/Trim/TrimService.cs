@@ -6,8 +6,6 @@ namespace DougaBot.Services.Trim;
 
 public class TrimService : InteractionModuleBase<SocketInteractionContext>, ITrimService
 {
-    #region Constructor
-
     private readonly Globals _globals;
 
     public TrimService(Globals globals)
@@ -15,36 +13,43 @@ public class TrimService : InteractionModuleBase<SocketInteractionContext>, ITri
         _globals = globals;
     }
 
-    #endregion
+    #region Strings
+
+    private static readonly TimeSpan DurationLimit = TimeSpan.FromHours(2);
+    private readonly string _durationErrorMessage = $"Video is too long.\nThe video needs to be shorter than {DurationLimit:g}";
+    private const string DataFetchErrorMessage = "Could not fetch video data";
+    private const string DownloadErrorMessage = "There was an error trimming.\nPlease try again late";
+
+    #endregion Strings
 
     #region Methods
 
     public async Task<string?>
-        Trim(string url, string startTime, string endTime, SocketInteractionContext context)
+        Trim(Uri url, string startTime, string endTime, SocketInteractionContext context)
     {
         var startTimeFloat = float.Parse(startTime, CultureInfo.InvariantCulture);
         var endTimeFloat = float.Parse(endTime, CultureInfo.InvariantCulture);
 
+        string? message;
         if (Math.Abs(startTimeFloat - endTimeFloat) < 1)
         {
-            await FollowupAsync("Start time and end time cannot be less than 1 second apart",
-                ephemeral: true,
-                options: _globals.ReqOptions)
-                .ConfigureAwait(false);
+            message = "Start time and end time cannot be less than 1 second apart";
+            await FollowupAsync(message, ephemeral: true, options: _globals.ReqOptions);
             return default;
         }
 
         if (startTimeFloat > endTimeFloat)
         {
-            await FollowupAsync("Start time cannot be greater than end time")
-                .ConfigureAwait(false);
+            message = "Start time cannot be greater than end time";
+            await FollowupAsync(message, ephemeral: true, options: _globals.ReqOptions);
             return default;
         }
 
-        var runFetch = await _globals.FetchAsync(url, TimeSpan.FromHours(2),
-            "Video is too long.\nThe video needs to be shorter than 2 hours",
-            "Could not fetch video data",
-            context.Interaction).ConfigureAwait(false);
+        var runFetch = await _globals.FetchAsync(url,
+            DurationLimit,
+            _durationErrorMessage,
+            DataFetchErrorMessage,
+            context.Interaction);
         if (runFetch is null)
             return default;
 
@@ -53,50 +58,42 @@ public class TrimService : InteractionModuleBase<SocketInteractionContext>, ITri
         {
             await context.Interaction.FollowupAsync("Start time cannot be greater than video duration",
                 ephemeral: true,
-                options: _globals.ReqOptions)
-                .ConfigureAwait(false);
+                options: _globals.ReqOptions);
             return default;
         }
         if (endTimeFloat > videoDuration)
         {
             await context.Interaction.FollowupAsync("End time cannot be greater than video duration",
                 ephemeral: true,
-                options: _globals.ReqOptions)
-                .ConfigureAwait(false);
+                options: _globals.ReqOptions);
             return default;
         }
 
+        const string waitMessage = "Please wait while the video is being trimmed...";
+        await context.Interaction.FollowupAsync(waitMessage, ephemeral: true, options: _globals.ReqOptions);
+
         var folderUuid = Guid.NewGuid().ToString()[..4];
-
-        await context.Interaction.FollowupAsync("Please wait while the video is being trimmed...",
-            ephemeral: true,
-            options: _globals.ReqOptions)
-            .ConfigureAwait(false);
-
         var downloadArgs =
             $"*{startTimeFloat.ToString(CultureInfo.InvariantCulture)}-{endTimeFloat.ToString(CultureInfo.InvariantCulture)}";
-        var runDownload = await _globals.DownloadAsync(url,
-            "There was an error trimming.\nPlease try again later",
-            new OptionSet
-            {
-                FormatSort = _globals.FormatSort,
-                DownloadSections = downloadArgs,
-                ForceKeyframesAtCuts = true,
-                NoPlaylist = true,
-                Output = Path.Combine(_globals.DownloadFolder, folderUuid, "%(id)s.%(ext)s")
-            }, context.Interaction).ConfigureAwait(false);
+        OptionSet optionSet = new()
+        {
+            FormatSort = _globals.FormatSort,
+            DownloadSections = downloadArgs,
+            ForceKeyframesAtCuts = true,
+            NoPlaylist = true,
+            Output = Path.Combine(Path.GetTempPath(), folderUuid, "%(id)s.%(ext)s")
+        };
+        var runDownload = await _globals.DownloadAsync(url, DownloadErrorMessage, optionSet, context.Interaction);
 
         if (!runDownload)
             return default;
 
-        var trimFile = Directory.GetFiles(Path.Combine(_globals.DownloadFolder, folderUuid)).FirstOrDefault();
+        var trimFile = Directory.GetFiles(Path.Combine(Path.GetTempPath(), folderUuid)).FirstOrDefault();
         if (trimFile is not null)
             return trimFile;
 
-        await context.Interaction.FollowupAsync("Couldn't process video",
-            ephemeral: true,
-            options: _globals.ReqOptions)
-            .ConfigureAwait(false);
+        message = "Couldn't process video";
+        await context.Interaction.FollowupAsync(message, ephemeral: true, options: _globals.ReqOptions);
         return default;
     }
 

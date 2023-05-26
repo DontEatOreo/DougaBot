@@ -13,14 +13,12 @@ public interface IVideoService
     /// <param name="url"></param>
     /// <param name="context"></param>
     /// <returns></returns>
-    ValueTask<(string? filePath, string? outPath)> Download(string url, SocketInteractionContext context);
+    ValueTask<(string? downloadPath, string? outPath)> Download(Uri url, SocketInteractionContext context);
 
-    [UsedImplicitly]
     Task<string?> Compress(string path,
-        string outPath,
-        CompressGroup.Resolution resEnum,
-        SocketInteractionContext context);
+        string compressPath,
+        CompressGroup.Resolution resEnum);
 
     [UsedImplicitly]
-    Task SetRes(IVideoStream stream, CompressGroup.Resolution resEnum);
+    ValueTask SetRes(IVideoStream stream, CompressGroup.Resolution resEnum);
 }

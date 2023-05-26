@@ -1,6 +1,6 @@
 using System.Reflection;
+using Discord;
 using Discord.Interactions;
-using Serilog;
 using Xabe.FFmpeg;
 using YoutubeDLSharp.Options;
 
@@ -8,64 +8,73 @@ namespace DougaBot.Services.Audio;
 
 public class AudioService : InteractionModuleBase<SocketInteractionContext>, IAudioService
 {
-    #region Constructor
-
-    private readonly ILogger _logger;
     private readonly Globals _globals;
 
-    public AudioService(Globals globals, ILogger logger)
+    public AudioService(Globals globals)
     {
         _globals = globals;
-        _logger = logger;
     }
 
-    #endregion
+    #region Strings
+
+    private static readonly TimeSpan DurationLimit = TimeSpan.FromHours(2);
+    private const string DurationErrorMessage = "Audio is too long.\nThe audio needs to be shorter than 2 hours";
+    private const string DataFetchErrorMessage = "Could not fetch audio";
+    private const string DownloadErrorMessage = "There was an error downloading the audio\nPlease try again later";
+
+    #endregion Strings
 
     #region Methods
 
-    public async ValueTask<(string? filePath, string? outPath)> Download(string? url, SocketInteractionContext context)
+    public async ValueTask<(string? downloadPath, string? compressPath)> Download(Uri url, SocketInteractionContext context)
     {
         var runFetch = await _globals.FetchAsync(url,
-            TimeSpan.FromHours(2),
-            "Audio is too long.\nThe audio needs to be shorter than 2 hours",
-            "Could not fetch audio",
-            context.Interaction).ConfigureAwait(false);
+            DurationLimit,
+            DurationErrorMessage,
+            DataFetchErrorMessage,
+            context.Interaction);
 
         if (runFetch is null)
             return default;
 
         var folderUuid = Path.GetRandomFileName()[..4];
-        var audioPath = Path.Combine(_globals.DownloadFolder, $"{runFetch.ID}.m4a");
-        var compressedAudioPath = Path.Combine(_globals.DownloadFolder, folderUuid, $"{runFetch.ID}.m4a");
+        var fileName = $"{runFetch.ID}.m4a";
+        var audioPath = Path.Combine(Path.GetTempPath(), fileName);
+        var compressedAudioPath = Path.Combine(Path.GetTempPath(), folderUuid, fileName);
+
+        OptionSet optionSet = new()
+        {
+            NoPlaylist = true,
+            AudioFormat = AudioConversionFormat.M4a,
+            ExtractAudio = true
+        };
 
         // Download audio
-        var runDownload = await _globals.DownloadAsync(url,
-            "There was an error downloading the audio\nPlease try again later",
-            new OptionSet
-            {
-                NoPlaylist = true,
-                AudioFormat = AudioConversionFormat.M4a,
-                ExtractAudio = true
-            }, context.Interaction).ConfigureAwait(false);
+        var runDownload = await _globals.DownloadAsync(url, DownloadErrorMessage, optionSet, context.Interaction);
 
         return runDownload ? (audioPath, compressedAudioPath) : default;
     }
 
     public async Task Compress(string filePath, string compressPath, int bitrate)
     {
-        var beforeMediaInfo = await FFmpeg.GetMediaInfo(filePath).ConfigureAwait(false);
+        var beforeMediaInfo = await FFmpeg.GetMediaInfo(filePath);
         var audioStreams = beforeMediaInfo.AudioStreams.FirstOrDefault();
+
+        string? errorMessage;
+        LogMessage logMessage;
+        string? source;
 
         if (audioStreams is null)
         {
             File.Delete(filePath);
-            await FollowupAsync("No audio streams found",
-                    ephemeral: true,
-                    options: _globals.ReqOptions)
-                .ConfigureAwait(false);
-            _logger.Warning("[{Source}] {File} has no audio streams found",
-                MethodBase.GetCurrentMethod()?.DeclaringType?.Name,
-                filePath);
+
+            errorMessage = "No audio streams found";
+            await FollowupAsync(errorMessage, ephemeral: true, options: _globals.ReqOptions);
+
+            source = MethodBase.GetCurrentMethod()?.DeclaringType?.Name;
+            errorMessage = $"{filePath} has no audio streams found";
+            logMessage = new LogMessage(LogSeverity.Warning, source, errorMessage);
+            await _globals.LogAsync(logMessage);
             return;
         }
 
@@ -76,23 +85,20 @@ public class AudioService : InteractionModuleBase<SocketInteractionContext>, IAu
             .AddStream(audioStreams)
             .SetOutput(compressPath)
             .SetPreset(ConversionPreset.VerySlow)
-            .Start()
-            .ConfigureAwait(false);
+            .Start();
 
-        var afterMediaInfo = await FFmpeg.GetMediaInfo(compressPath).ConfigureAwait(false);
+        var afterMediaInfo = await FFmpeg.GetMediaInfo(compressPath);
 
-        if (afterMediaInfo.Duration <= TimeSpan.FromHours(2))
+        if (afterMediaInfo.Duration <= DurationLimit)
             return;
 
         File.Delete(compressPath);
-        await FollowupAsync("The Audio needs to be shorter than 2 hours",
-            ephemeral: true,
-            options: _globals.ReqOptions)
-            .ConfigureAwait(false);
+        await FollowupAsync(DurationErrorMessage, ephemeral: true, options: _globals.ReqOptions);
 
-        _logger.Warning("[{Source}] {File} is longer than 2 hours",
-            MethodBase.GetCurrentMethod()?.DeclaringType?.Name,
-            compressPath);
+        source = MethodBase.GetCurrentMethod()?.DeclaringType?.Name;
+        errorMessage = $"{compressPath} is longer than {DurationLimit:g}";
+        logMessage = new LogMessage(LogSeverity.Warning, source, errorMessage);
+        await _globals.LogAsync(logMessage);
     }
 
     #endregion

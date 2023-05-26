@@ -4,7 +4,8 @@ using AsyncKeyedLock;
 using Discord;
 using Discord.Interactions;
 using Discord.WebSocket;
-using Serilog;
+using DougaBot.Modules.CompressGroup;
+using Microsoft.Extensions.Options;
 using Xabe.FFmpeg;
 
 namespace DougaBot.Services;
@@ -12,34 +13,32 @@ namespace DougaBot.Services;
 public class InteractionHandler
 {
     #region Constructor
-
-    private readonly ILogger _logger;
     private readonly DiscordSocketClient _discordClient;
     private readonly InteractionService _commands;
     private readonly IServiceProvider _services;
     private readonly AsyncKeyedLocker<string> _asyncKeyedLocker;
     private readonly Globals _globals;
 
-    public InteractionHandler(ILogger logger,
-        DiscordSocketClient discordClient,
+    public InteractionHandler(DiscordSocketClient discordClient,
         InteractionService commands,
         IServiceProvider services,
         AsyncKeyedLocker<string> asyncKeyedLocker,
-        Globals globals)
+        Globals globals, IOptions<AppSettings> appSettings)
     {
+        _iosCompatibility = appSettings.Value.IosCompatability ?? true;
+
         _discordClient = discordClient;
         _commands = commands;
         _services = services;
         _asyncKeyedLocker = asyncKeyedLocker;
         _globals = globals;
-        _logger = logger;
     }
 
     #endregion
 
     #region Fields
 
-    private static readonly bool IosCompatibility = Convert.ToBoolean(Environment.GetEnvironmentVariable("IOS_COMPATIBILITY"));
+    private static bool _iosCompatibility;
 
     private const string WebMQueueKey = "WebMQueueKey";
 
@@ -49,25 +48,28 @@ public class InteractionHandler
 
     private async Task VideoQueueHandler(SocketMessage message, List<Attachment> attachments)
     {
-        using var _ = await _asyncKeyedLocker.LockAsync(WebMQueueKey).ConfigureAwait(false);
+        using var _ = await _asyncKeyedLocker.LockAsync(WebMQueueKey);
         foreach (var attachment in attachments)
         {
-            _logger.Information("[{Source}] {Message}",
-                MethodBase.GetCurrentMethod()?.DeclaringType?.Name,
-                $"{message.Author.Username}#{message.Author.Discriminator} has locked: {attachment.Url}");
+            LogMessage logMessage;
+            var loggingMessage = $"{message.Author.Username}#{message.Author.Discriminator} has locked: {attachment.Url}";
+            var source = MethodBase.GetCurrentMethod()?.DeclaringType?.Name;
 
-            await HandleWebM(message, attachment).ConfigureAwait(false);
+            logMessage = new LogMessage(LogSeverity.Info, source, loggingMessage);
+            await _globals.LogAsync(logMessage);
 
-            _logger.Information("[{Source}] {Message}",
-                MethodBase.GetCurrentMethod()?.DeclaringType?.Name,
-                $"{message.Author.Username}#{message.Author.Discriminator} has unlocked: {attachment.Url}");
+            await HandleWebM(message, attachment);
+
+            loggingMessage = $"{message.Author.Username}#{message.Author.Discriminator} has unlocked: {attachment.Url}";
+            logMessage = new LogMessage(LogSeverity.Info, source, loggingMessage);
+            await _globals.LogAsync(logMessage);
         }
     }
 
     public async Task InitializeAsync()
     {
         // Add the public modules that inherit InteractionModuleBase<T> to the InteractionService
-        await _commands.AddModulesAsync(Assembly.GetEntryAssembly(), _services).ConfigureAwait(false);
+        await _commands.AddModulesAsync(Assembly.GetEntryAssembly(), _services);
 
         // Process the InteractionCreated payloads to execute Interactions commands
         _discordClient.InteractionCreated += HandleInteraction;
@@ -84,7 +86,7 @@ public class InteractionHandler
             return Task.CompletedTask;
 
         // Convert VP9 (WebM) videos to H264 (MP4)
-        if (!IosCompatibility)
+        if (!_iosCompatibility)
             return Task.CompletedTask;
 
         var attachments = message.Attachments
@@ -104,7 +106,7 @@ public class InteractionHandler
     // ReSharper disable once SuggestBaseTypeForParameter
     private async Task HandleWebM(SocketMessage message, Attachment attachment)
     {
-        var videoFetch = await _globals.YoutubeDl.RunVideoDataFetch(attachment.Url).ConfigureAwait(false);
+        var videoFetch = await _globals.YoutubeDl.RunVideoDataFetch(attachment.Url);
         if (!videoFetch.Success)
             return;
 
@@ -112,42 +114,38 @@ public class InteractionHandler
         if (videoFetch.Data.Duration > TimeSpan.FromMinutes(3).TotalSeconds)
             return;
 
-        var download = await _globals.YoutubeDl.RunVideoDownload(attachment.Url).ConfigureAwait(false);
+        var download = await _globals.YoutubeDl.RunVideoDownload(attachment.Url);
         if (!download.Success)
             return;
 
         var videoId = videoFetch.Data.ID;
 
         var folderUuid = Guid.NewGuid().ToString()[..4];
-        var beforeVideo = Path.Combine(_globals.DownloadFolder, $"{videoId}.webm");
-        var afterVideo = Path.Combine(_globals.DownloadFolder, folderUuid, $"{videoId}.mp4");
+        var beforeVideo = Path.Combine(Path.GetTempPath(), $"{videoId}.webm");
+        var afterVideo = Path.Combine(Path.GetTempPath(), folderUuid, $"{videoId}.mp4");
 
         if (File.Exists(afterVideo))
         {
-            _logger.Information("[{Source}] {File} already exists",
-                MethodBase.GetCurrentMethod()?.DeclaringType?.Name,
-                afterVideo);
+            LogMessage logMessage = new(LogSeverity.Warning, "Video", "File already exists");
+            await _globals.LogAsync(logMessage);
             return;
         }
 
-        var mediaInfo = await FFmpeg.GetMediaInfo(beforeVideo).ConfigureAwait(false);
+        var mediaInfo = await FFmpeg.GetMediaInfo(beforeVideo);
         var videoStream = mediaInfo.VideoStreams.FirstOrDefault();
         var audioStream = mediaInfo.AudioStreams.FirstOrDefault();
 
         if (videoStream is null)
         {
-            Log.Warning("[{Source}] [{Message}] NULL Video Stream",
-                MethodBase.GetCurrentMethod()
-                    ?.DeclaringType?.Name,
-                afterVideo);
+            LogMessage logMessage = new(LogSeverity.Warning, "Video", "NULL Video Stream");
+            await _globals.LogAsync(logMessage);
             return;
         }
 
         if (videoStream.Duration > TimeSpan.FromMinutes(3))
         {
-            Log.Warning("[{Source}] {File} is too long:",
-                MethodBase.GetCurrentMethod()?.DeclaringType?.Name,
-                beforeVideo);
+            LogMessage logMessage = new(LogSeverity.Warning, "Video", "File is too long");
+            await _globals.LogAsync(logMessage);
             return;
         }
 
@@ -170,14 +168,13 @@ public class InteractionHandler
                 audioStream.SetBitrate(128);
         }
 
-        await conversion.Start().ConfigureAwait(false);
+        await conversion.Start();
 
         var videoSize = new FileInfo(afterVideo).Length / _globals.BytesInMegabyte;
         if (videoSize > 100)
         {
-            _logger.Warning("[{Source}] {File} File is too large to embed",
-                MethodBase.GetCurrentMethod()?.DeclaringType?.Name,
-                afterVideo);
+            LogMessage logMessage = new(LogSeverity.Warning, "Video", "File is too large to embed");
+            await _globals.LogAsync(logMessage);
             File.Delete(afterVideo);
             return;
         }
@@ -188,8 +185,7 @@ public class InteractionHandler
         {
             await message.Channel.SendFileAsync(afterVideo,
                 messageReference: new MessageReference(message.Id,
-                    failIfNotExists: false))
-                .ConfigureAwait(false);
+                    failIfNotExists: false));
         }
     }
 
@@ -198,8 +194,7 @@ public class InteractionHandler
         if (arg3 is { IsSuccess: false, Error: InteractionCommandError.UnmetPrecondition })
             await arg2.Interaction.RespondAsync(arg3.ErrorReason,
                     ephemeral: true,
-                    options: _globals.ReqOptions)
-                .ConfigureAwait(false);
+                    options: _globals.ReqOptions);
     }
 
     private async Task HandleInteraction(SocketInteraction interaction)
@@ -208,20 +203,19 @@ public class InteractionHandler
         {
             // Create an execution context that matches the generic type parameter of your InteractionModuleBase<T> modules
             SocketInteractionContext ctx = new(_discordClient, interaction);
-            await _commands.ExecuteCommandAsync(ctx, _services).ConfigureAwait(false);
+            await _commands.ExecuteCommandAsync(ctx, _services);
         }
         catch (Exception ex)
         {
-            _logger.Error("[{Type}] [{Id}] {Message}", interaction.Type, interaction.Id, ex.Message);
+            LogMessage logMessage = new(LogSeverity.Error, "Interaction", ex.Message);
+            await _globals.LogAsync(logMessage);
 
             // If a Slash Command execution fails it is most likely that the original interaction acknowledgement will persist.
             // It is a good idea to delete the original response,
             // or at least let the user know that something went wrong during the command execution.
             if (interaction.Type is InteractionType.ApplicationCommand)
                 await interaction.GetOriginalResponseAsync()
-                    .ContinueWith(async msg => await msg.Result.DeleteAsync()
-                        .ConfigureAwait(false))
-                    .ConfigureAwait(false);
+                    .ContinueWith(async msg => await msg.Result.DeleteAsync());
         }
     }
 

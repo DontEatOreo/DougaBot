@@ -15,17 +15,17 @@ public sealed partial class DownloadGroup
     [SlashCommand("audio", "Download Audio")]
     public async Task Audio(string url)
     {
-        await DeferAsync(options: _globals.ReqOptions).ConfigureAwait(false);
+        await DeferAsync(options: _globals.ReqOptions);
+        Uri.TryCreate(url, UriKind.Absolute, out var uri);
 
-        var downloadResult = await _audioService.Download(url, Context).ConfigureAwait(false);
-        if (downloadResult.filePath is null || downloadResult.outPath is null)
+        var (downloadPath, _) = await _audioService.Download(uri!, Context);
+        if (downloadPath is null)
         {
-            RateLimitService.Clear(RateLimitService.RateLimitType.User, Context.User.Id,
-                MethodBase.GetCurrentMethod()!.Name);
+            RateLimitService.Clear(RateLimitService.RateLimitType.User, Context.User.Id, MethodBase.GetCurrentMethod()!.Name);
             return;
         }
 
-        var fileSize = new FileInfo(downloadResult.filePath).Length / _globals.BytesInMegabyte;
-        await _globals.UploadAsync(fileSize, downloadResult.filePath, Context).ConfigureAwait(false);
+        var fileSize = new FileInfo(downloadPath).Length / _globals.BytesInMegabyte;
+        await _globals.UploadAsync(fileSize, downloadPath, Context);
     }
 }

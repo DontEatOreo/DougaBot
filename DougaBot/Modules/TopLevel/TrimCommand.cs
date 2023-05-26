@@ -1,4 +1,5 @@
 using System.Reflection;
+using Discord;
 using Discord.Interactions;
 using DougaBot.Services.RateLimit;
 using JetBrains.Annotations;
@@ -10,25 +11,40 @@ public sealed partial class TopLevelGroup
     [RateLimit(15)]
     [SlashCommand("trim", "Trim a video or audio")]
     [UsedImplicitly]
-    public async Task TrimCommand(string url,
+    public async Task TrimCommand(string? url,
+        IAttachment? attachment,
         [Summary(description: "Format: ss.ms (seconds.milliseconds)")] string startTime,
         [Summary(description: "Format: ss.ms (seconds.milliseconds)")] string endTime)
     {
-        await DeferAsync(options: _globals.ReqOptions).ConfigureAwait(false);
+        await DeferAsync(options: _globals.ReqOptions);
+        Uri.TryCreate(url, UriKind.Absolute, out var uri);
 
-        using var lockAsync = await _asyncKeyedLocker.LockAsync(url).ConfigureAwait(false);
+        if (uri == null && attachment == null)
+        {
+            const string message = "You must provide a URL or attachment.";
+            await FollowupAsync(message, ephemeral: true, options: _globals.ReqOptions);
+            RateLimitService.Clear(RateLimitService.RateLimitType.User, Context.Guild.Id, MethodBase.GetCurrentMethod()!.Name);
+            return;
+        }
+
+        if (uri != null && attachment != null)
+        {
+            const string message = "You can't provide both a URL and an attachment.";
+            await FollowupAsync(message, ephemeral: true, options: _globals.ReqOptions);
+            RateLimitService.Clear(RateLimitService.RateLimitType.User, Context.Guild.Id, MethodBase.GetCurrentMethod()!.Name);
+            return;
+        }
+
+        using var lockAsync = await _asyncKeyedLocker.LockAsync(Key);
 
         var remainingCount = _asyncKeyedLocker.GetRemainingCount(Key);
         if (remainingCount > 1)
         {
-            await FollowupAsync(
-                    $"Your file is in position {_asyncKeyedLocker.GetRemainingCount(Key)} in the queue.",
-                    ephemeral: true,
-                    options: _globals.ReqOptions)
-                .ConfigureAwait(false);
+            var message = $"Your file is in position {remainingCount} in the queue.";
+            await FollowupAsync(message, ephemeral: true, options: _globals.ReqOptions);
         }
 
-        var trimPath = await _trimService.Trim(url, startTime, endTime, Context).ConfigureAwait(false);
+        var trimPath = await _trimService.Trim(uri!, startTime, endTime, Context);
         if (trimPath is null)
         {
             RateLimitService.Clear(RateLimitService.RateLimitType.User, Context.User.Id, MethodBase.GetCurrentMethod()!.Name);
@@ -36,6 +52,6 @@ public sealed partial class TopLevelGroup
         }
 
         var fileSize = new FileInfo(trimPath).Length / _globals.BytesInMegabyte;
-        await _globals.UploadAsync(fileSize, trimPath, Context).ConfigureAwait(false);
+        await _globals.UploadAsync(fileSize, trimPath, Context);
     }
 }

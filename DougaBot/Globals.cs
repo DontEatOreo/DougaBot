@@ -1,8 +1,10 @@
 using System.Diagnostics;
+using System.Reflection;
 using Discord;
 using Discord.Interactions;
 using Discord.WebSocket;
 using DougaBot.Services.Video;
+using Microsoft.Extensions.Options;
 using Serilog;
 using Serilog.Events;
 using YoutubeDLSharp;
@@ -15,39 +17,37 @@ public class Globals
 {
     #region Constructor
 
-    private readonly CatBoxHttpClient _catBoxHttp;
+    private readonly CatBoxClient _catBoxHttp;
     private readonly ILogger _logger;
     public readonly YoutubeDL YoutubeDl;
 
-    public Globals(ILogger logger, CatBoxHttpClient catBoxHttp)
+    public Globals(ILogger logger, CatBoxClient catBoxHttp, IOptions<AppSettings> appSettings)
     {
+        _fFmpegPath = appSettings.Value.FfMpegPath ?? "ffmpeg";
+        _ytdlpPath = appSettings.Value.YtDlpPath ?? "yt-dlp";
+
         _logger = logger;
         _catBoxHttp = catBoxHttp;
         YoutubeDl = new YoutubeDL
         {
-            FFmpegPath = FFmpegPath,
-            YoutubeDLPath = YtdlpPath,
+            FFmpegPath = _fFmpegPath,
+            YoutubeDLPath = _ytdlpPath,
             OverwriteFiles = false,
             OutputFileTemplate = "%(id)s.%(ext)s",
-            OutputFolder = DownloadFolder
+            OutputFolder = Path.GetTempPath()
         };
     }
 
-    #endregion
+    #endregion Constructor
 
     #region Strings
 
-    private static readonly string FFmpegPath = Environment.GetEnvironmentVariable("FFMPEG_PATH") ?? "ffmpeg";
-
-    private static readonly string YtdlpPath = Environment.GetEnvironmentVariable("YTDLP_PATH") ?? "yt-dlp";
-
-    public readonly string FormatSort = "res:720";
-
-    public readonly string DownloadFolder = Path.GetTempPath();
-
+    private static string? _fFmpegPath;
+    private static string? _ytdlpPath;
+    public readonly string FormatSort = "res:720,ext:mp4";
     public readonly int BytesInMegabyte = 1024 * 1024;
 
-    #endregion
+    #endregion Strings
 
     #region Fields
 
@@ -68,7 +68,9 @@ public class Globals
         { PremiumTier.None, 25 }
     };
 
-    #endregion
+    #endregion Fields
+
+    #region Methods
 
     /// <summary>
     /// Uploads a file to the server or an api
@@ -81,7 +83,7 @@ public class Globals
         var maxSize = MaxSizes[context.Guild.PremiumTier];
         if (size <= maxSize)
         {
-            await context.Interaction.FollowupWithFileAsync(path, options: ReqOptions).ConfigureAwait(false);
+            await context.Interaction.FollowupWithFileAsync(path, options: ReqOptions);
             return;
         }
         var fileLink = await _catBoxHttp.UploadFile(path);
@@ -95,24 +97,21 @@ public class Globals
             components: component);
     }
 
-    #region Methods
-
     /// <summary>
     /// Fetches video data and checks if the duration is within the limit.
     /// </summary>
-    public async ValueTask<VideoData?> FetchAsync(string? url,
+    public async ValueTask<VideoData?> FetchAsync(Uri url,
         TimeSpan durationLimit,
         string durationErrorMessage,
         string dataFetchErrorMessage,
         SocketInteraction interaction)
     {
-        var runDataFetch = await YoutubeDl.RunVideoDataFetch(url);
+        var runDataFetch = await YoutubeDl.RunVideoDataFetch(url.ToString());
         if (!runDataFetch.Success)
         {
             await interaction.FollowupAsync(dataFetchErrorMessage,
                     ephemeral: true,
-                    options: ReqOptions)
-                .ConfigureAwait(false);
+                    options: ReqOptions);
             return null;
         }
 
@@ -121,39 +120,37 @@ public class Globals
 
         await interaction.FollowupAsync(durationErrorMessage,
                 ephemeral: true,
-                options: ReqOptions)
-            .ConfigureAwait(false);
+                options: ReqOptions);
         return null;
     }
 
     /// <summary>
     /// Downloads a video.
     /// </summary>
-    public async ValueTask<bool> DownloadAsync(string? url,
+    public async ValueTask<bool> DownloadAsync(Uri url,
         string downloadErrorMessage,
         OptionSet optionSet,
         SocketInteraction interaction)
     {
-        var runResult = await YoutubeDl.RunVideoDownload(url, overrideOptions: optionSet).ConfigureAwait(false);
+        var runResult = await YoutubeDl.RunVideoDownload(url.ToString(), overrideOptions: optionSet);
         if (runResult.Success)
             return true;
 
-        await interaction.FollowupAsync(downloadErrorMessage,
-                ephemeral: true,
-                options: ReqOptions)
-            .ConfigureAwait(false);
+        await interaction.FollowupAsync(downloadErrorMessage, ephemeral: true, options: ReqOptions);
         return false;
     }
 
+    #endregion Methods
+
     #region Checks
 
-    public static Task CheckForFFmpeg()
+    public async Task CheckForFFmpeg()
     {
         try
         {
             Process.Start(new ProcessStartInfo
             {
-                FileName = FFmpegPath,
+                FileName = _fFmpegPath,
                 Arguments = "-version",
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
@@ -163,20 +160,21 @@ public class Globals
         }
         catch (Exception e)
         {
-            Log.Error(e, "FFmpeg not found");
+            var source = MethodBase.GetCurrentMethod()?.DeclaringType?.FullName;
+            const string message = "FFmpeg not found";
+            LogMessage logMessage = new(LogSeverity.Critical, source, message, e);
+            await LogAsync(logMessage);
             Environment.Exit(1);
         }
-
-        return Task.CompletedTask;
     }
 
-    public static Task CheckForYtdlp()
+    public async Task CheckForYtdlp()
     {
         try
         {
             Process.Start(new ProcessStartInfo
             {
-                FileName = YtdlpPath,
+                FileName = _ytdlpPath,
                 Arguments = "--version",
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
@@ -186,14 +184,13 @@ public class Globals
         }
         catch (Exception e)
         {
-            Log.Error(e, "yt-dlp not found");
+            var source = MethodBase.GetCurrentMethod()?.DeclaringType?.FullName;
+            const string message = "YtDlp not found";
+            LogMessage logMessage = new(LogSeverity.Critical, source, message, e);
+            await LogAsync(logMessage);
             Environment.Exit(1);
         }
-
-        return Task.CompletedTask;
     }
-
-    #endregion
 
     public Task LogAsync(LogMessage message)
     {
@@ -211,5 +208,5 @@ public class Globals
         return Task.CompletedTask;
     }
 
-    #endregion
+    #endregion Methods
 }

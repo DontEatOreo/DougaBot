@@ -1,8 +1,9 @@
 using System.Reflection;
+using Discord;
 using Discord.Interactions;
 using DougaBot.Modules.CompressGroup;
 using Microsoft.AspNetCore.StaticFiles;
-using Serilog;
+using Microsoft.Extensions.Options;
 using Xabe.FFmpeg;
 using YoutubeDLSharp.Options;
 
@@ -10,8 +11,25 @@ namespace DougaBot.Services.Video;
 
 public class VideoService : InteractionModuleBase<SocketInteractionContext>, IVideoService
 {
-    private const int MaxVideoDurationInMinutes = 10;
-    private const int MaxVideoDurationInMinutesAfterDownload = 4;
+    #region Constructor
+
+    private readonly IContentTypeProvider _contentTypeProvider;
+    private readonly Globals _globals;
+
+    public VideoService(IOptions<AppSettings> appSettings, IContentTypeProvider contentTypeProvider, Globals globals)
+    {
+        _contentTypeProvider = contentTypeProvider;
+        _globals = globals;
+        _iOsCompatible = appSettings.Value.IosCompatability ?? true;
+        _crf = appSettings.Value.Crf ?? 26;
+    }
+
+    #endregion Constructor
+
+    #region Strings
+
+    private readonly TimeSpan _maxVideoDuration = TimeSpan.FromMinutes(10);
+    private readonly TimeSpan _maxVideoDurationAfterDownload = TimeSpan.FromMinutes(4);
 
     private readonly string[] _vp9Args = {
         "-row-mt 1",
@@ -25,43 +43,33 @@ public class VideoService : InteractionModuleBase<SocketInteractionContext>, IVi
         "-row-mt 1"
     };
 
-    private readonly bool _iOsCompatible = Convert.ToBoolean(Environment.GetEnvironmentVariable("IOS_COMPATIBLE"));
+    private readonly bool _iOsCompatible;
+    private readonly int _crf;
 
-    #region Constructor
-
-    private readonly ILogger _logger;
-    private readonly IContentTypeProvider _contentTypeProvider;
-    private readonly Globals _globals;
-
-    public VideoService(ILogger logger, IContentTypeProvider contentTypeProvider, Globals globals)
-    {
-        _logger = logger;
-        _contentTypeProvider = contentTypeProvider;
-        _globals = globals;
-    }
+    private const string DurationErrorMessage = "Could not fetch video data";
+    private const string DownloadErrorMessage = "There was an error downloading the video\nPlease try again later";
 
     #endregion
 
     #region Methods
 
-    public async ValueTask<(string? filePath, string? outPath)> Download(string url, SocketInteractionContext context)
+    public async ValueTask<(string? downloadPath, string? outPath)> Download(Uri url, SocketInteractionContext context)
     {
-        var fetch = await _globals.FetchAsync(url, TimeSpan.FromMinutes(MaxVideoDurationInMinutes),
-            "Could not fetch video data",
-        "Could not fetch video data", context.Interaction).ConfigureAwait(false);
+        var fetch = await _globals.FetchAsync(url,
+            _maxVideoDuration,
+            DurationErrorMessage,
+            DurationErrorMessage,
+            context.Interaction);
 
         if (fetch is null)
-        {
             return default;
-        }
 
-        var runDownload = await _globals.DownloadAsync(url,
-            "There was an error downloading the video\nPlease try again later",
-            new OptionSet
-            {
-                FormatSort = _globals.FormatSort,
-                NoPlaylist = true
-            }, context.Interaction).ConfigureAwait(false);
+        OptionSet optionSet = new()
+        {
+            FormatSort = _globals.FormatSort,
+            NoPlaylist = true
+        };
+        var runDownload = await _globals.DownloadAsync(url, DownloadErrorMessage, optionSet, context.Interaction);
 
         if (!runDownload)
             return default;
@@ -70,31 +78,35 @@ public class VideoService : InteractionModuleBase<SocketInteractionContext>, IVi
         string path = null!;
         string compressPath = null!;
         var folderUuid = Guid.NewGuid().ToString()[..4];
-        var matchingFiles = Directory.GetFiles(_globals.DownloadFolder, $"{id}.*");
+        var searchPattern = $"{id}.*";
+        var matchingFiles = Directory.GetFiles(Path.GetTempPath(), searchPattern);
         foreach (var matchingFile in matchingFiles)
         {
-            if (!_contentTypeProvider.TryGetContentType(matchingFile, out var contentType) ||
-                !contentType.StartsWith("video"))
+            _ = !_contentTypeProvider.TryGetContentType(matchingFile, out var contentType);
+            if (contentType == null)
+                continue;
+            if (!contentType.StartsWith("video"))
                 continue;
 
             var extension = Path.GetExtension(matchingFile);
             path = matchingFile;
-            compressPath = Path.Combine(_globals.DownloadFolder, folderUuid, $"{id}{extension}");
+            compressPath = Path.Combine(Path.GetTempPath(), folderUuid, $"{id}{extension}");
         }
 
-        var mediaInfo = await FFmpeg.GetMediaInfo(path).ConfigureAwait(false);
+        var mediaInfo = await FFmpeg.GetMediaInfo(path);
         var videoStream = mediaInfo.VideoStreams.FirstOrDefault();
+        string? errorMessage;
         if (videoStream is null)
         {
             File.Delete(path);
 
-            await FollowupAsync("Could not find video stream",
-                ephemeral: true,
-                options: _globals.ReqOptions).ConfigureAwait(false);
+            errorMessage = "Could not find video stream";
+            await FollowupAsync(errorMessage, ephemeral: true, options: _globals.ReqOptions);
 
-            _logger.Warning("[{Source}] {File} has no video streams found",
-                MethodBase.GetCurrentMethod()?.DeclaringType?.Name,
-                path);
+            var source = MethodBase.GetCurrentMethod()?.DeclaringType?.Name;
+            errorMessage = $"{path} has no video streams found";
+            LogMessage logMessage = new(LogSeverity.Warning, source, errorMessage);
+            await _globals.LogAsync(logMessage);
             return default;
         }
         var duration = videoStream.Duration;
@@ -103,77 +115,76 @@ public class VideoService : InteractionModuleBase<SocketInteractionContext>, IVi
         {
             File.Delete(path);
 
-            await FollowupAsync("Could not find video duration",
-                ephemeral: true,
-                options: _globals.ReqOptions).ConfigureAwait(false);
+            errorMessage = "Invalid video duration";
+            await FollowupAsync(errorMessage, ephemeral: true, options: _globals.ReqOptions);
 
-            _logger.Warning("[{Source}] {File} has no video duration found",
-                MethodBase.GetCurrentMethod()?.DeclaringType?.Name,
-                path);
+            var source = MethodBase.GetCurrentMethod()?.DeclaringType?.Name;
+            errorMessage = $"{path} has no video duration found";
+            LogMessage logMessage = new(LogSeverity.Warning, source, errorMessage);
+            await _globals.LogAsync(logMessage);
             return default;
         }
 
-        if (duration <= TimeSpan.FromMinutes(MaxVideoDurationInMinutesAfterDownload))
+        if (duration <= _maxVideoDurationAfterDownload)
             return (path, compressPath);
 
-        await FollowupAsync(
-            $"Video is too long.\nThe video needs to be shorter than {MaxVideoDurationInMinutesAfterDownload} minutes",
-            ephemeral: true,
-            options: _globals.ReqOptions).ConfigureAwait(false);
+        errorMessage = $"Video is too long.\nThe video needs to be shorter than {_maxVideoDurationAfterDownload:g} minutes";
+        await FollowupAsync(errorMessage, ephemeral: true, options: _globals.ReqOptions);
         return default;
     }
 
     public async Task<string?> Compress(string path,
-            string outPath,
-            CompressGroup.Resolution resEnum,
-            SocketInteractionContext context)
+        string compressPath,
+        CompressGroup.Resolution resEnum)
     {
-        var inputVideoInfo = await FFmpeg.GetMediaInfo(path).ConfigureAwait(false);
+        var inputVideoInfo = await FFmpeg.GetMediaInfo(path);
         var videoStream = inputVideoInfo.VideoStreams.FirstOrDefault();
         var audioStream = inputVideoInfo.AudioStreams.FirstOrDefault();
+
+        LogMessage logMessage;
+        string? source;
 
         if (videoStream is null)
         {
             File.Delete(path);
 
-            await FollowupAsync("Could not find video stream",
-                    ephemeral: true,
-                    options: _globals.ReqOptions)
-                .ConfigureAwait(false);
+            var errorMessage = "Could not find video stream";
+            await FollowupAsync(errorMessage, ephemeral: true, options: _globals.ReqOptions);
 
-            Log.Warning("[{Source}] {File} has no video streams found",
-                MethodBase.GetCurrentMethod()?.DeclaringType?.Name,
-                path);
+            source = MethodBase.GetCurrentMethod()?.DeclaringType?.Name;
+            errorMessage = $"{path} has no video streams found";
+            logMessage = new LogMessage(LogSeverity.Warning, source, errorMessage);
+            await _globals.LogAsync(logMessage);
             return default;
         }
 
         if (resEnum is not CompressGroup.Resolution.None)
-            await SetRes(videoStream, resEnum).ConfigureAwait(false);
+            await SetRes(videoStream, resEnum);
 
         if (videoStream.Height > 720)
         {
             resEnum = CompressGroup.Resolution.P720;
-            await SetRes(videoStream, resEnum).ConfigureAwait(false);
+            await SetRes(videoStream, resEnum);
         }
 
         var conversion = FFmpeg.Conversions.New()
             .AddStream(videoStream)
             .SetPreset(ConversionPreset.VerySlow)
             .SetPixelFormat(PixelFormat.yuv420p)
-            .AddParameter("-crf 30");
+            .AddParameter($"-crf {_crf}");
 
         if (_iOsCompatible)
         {
             videoStream.SetCodec(VideoCodec.libx264);
-            outPath = Path.ChangeExtension(outPath, "mp4");
+            compressPath = Path.ChangeExtension(compressPath, "mp4");
         }
         else
         {
             videoStream.SetCodec(VideoCodec.vp9);
             conversion.AddParameter(string.Join(" ", _vp9Args));
-            outPath = Path.ChangeExtension(outPath, ".webm");
+            compressPath = Path.ChangeExtension(compressPath, ".webm");
         }
-        conversion.SetOutput(outPath);
+        conversion.SetOutput(compressPath);
 
         if (audioStream is not null)
         {
@@ -185,20 +196,21 @@ public class VideoService : InteractionModuleBase<SocketInteractionContext>, IVi
                 audioStream.SetBitrate(128);
         }
 
-        _logger.Information("[{Source}] Starting conversion of {File}",
-            MethodBase.GetCurrentMethod()?.DeclaringType?.Name,
-            path);
+        source = MethodBase.GetCurrentMethod()?.DeclaringType?.Name;
+        var message = $"Starting conversion of {path}";
+        logMessage = new LogMessage(LogSeverity.Info, source, message);
+        await _globals.LogAsync(logMessage);
 
-        await conversion.Start().ConfigureAwait(false);
+        await conversion.Start();
 
-        _logger.Information("[{Source}] Finished conversion of {File}",
-            MethodBase.GetCurrentMethod()?.DeclaringType?.Name,
-            path);
+        message = $"Finished conversion of {path}";
+        logMessage = new LogMessage(LogSeverity.Info, source, message);
+        await _globals.LogAsync(logMessage);
 
-        return outPath;
+        return compressPath;
     }
 
-    public Task SetRes(IVideoStream stream, CompressGroup.Resolution resEnum)
+    public ValueTask SetRes(IVideoStream stream, CompressGroup.Resolution resEnum)
     {
         double originalWidth = stream.Width;
         double originalHeight = stream.Height;
@@ -220,8 +232,8 @@ public class VideoService : InteractionModuleBase<SocketInteractionContext>, IVi
 
         stream.SetSize(outputWidth, outputHeight);
 
-        return Task.CompletedTask;
+        return ValueTask.CompletedTask;
     }
 
-    #endregion
+    #endregion Methods
 }

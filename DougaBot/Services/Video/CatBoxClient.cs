@@ -1,18 +1,20 @@
+using System.Reflection;
+using Discord;
 using Serilog;
 
 namespace DougaBot.Services.Video;
 
-public class CatBoxHttpClient
+public class CatBoxClient
 {
     private readonly HttpClient _client;
-    private readonly ILogger _logger;
+    private readonly Globals _globals;
 
     private const string UploadApiLink = "https://litterbox.catbox.moe/resources/internals/api.php";
 
-    public CatBoxHttpClient(HttpClient client, ILogger logger)
+    public CatBoxClient(HttpClient client, Globals globals)
     {
         _client = client;
-        _logger = logger;
+        _globals = globals;
     }
 
     public async Task<string> UploadFile(string path)
@@ -27,7 +29,10 @@ public class CatBoxHttpClient
         using var uploadFilePost = await _client.PostAsync(UploadApiLink, uploadRequest);
         if (!uploadFilePost.IsSuccessStatusCode)
         {
-            _logger.Error("Couldn't upload file to catbox");
+            var source = MethodBase.GetCurrentMethod()!.Name;
+            const string message = "Couldn't upload file to catbox";
+            LogMessage logMessage = new(LogSeverity.Error, source, message);
+            await _globals.LogAsync(logMessage);
         }
         var link = await uploadFilePost.Content.ReadAsStringAsync();
         return link;

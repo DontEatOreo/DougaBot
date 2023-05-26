@@ -37,11 +37,32 @@ DougaBot is a [Discord](https://discord.com/) bot written in C# using the [Disco
 ## Notes
 
 - By default DougaBot will assume `ffmpeg` and `yt-dlp` are in the path. If they are not, you can set the environment variables `FFMPEG_PATH` and `YTDLP_PATH` to the path of the executables.
-- DougaBot currently only processes the first video or the selected video in a playlist. It **WILL NOT** download, compress, speed up, or trim the entire playlist.
-- If you set the environment variable `IOS_COMPATIBILITY` to true, DougaBot will automatically convert WebM videos to MP4 in the background to ensure compatibility with iOS devices.
-- To register global commands, ensure that the environment variable `REGISTER_GLOBAL_COMMANDS` is set to true. For first-time bot users, you should set it to true and then set it to false after the commands are registered.
+- DougaBot **only** processes the first video or the selected video in a playlist. It **WILL NOT** download, compress, speed up, or trim the entire playlist.
 - Each video is downloaded to the system's default temporary directory.
-- DougaBot will store logs at `LOG_PATH` environment variable. If it is not set, it will default to `./logs`. It rolls everyday and the retention period is 7 files.
+
+## AppSettings Configuration
+
+The `appsettings.json` file contains configuration settings for the application. Here's an overview of the available properties and their purpose:
+
+- `ffmpeg_path`: Specifies the path to the FFmpeg executable. It is used for video processing tasks.
+- `yt_dlp_path`: Specifies the path to the yt-dlp executable. It is used for downloading videos.
+- `ios_compatability`: Indicates whether iOS compatibility mode is enabled. When enabled, the output videos are optimized for iOS devices (This means videos are playable on iOS and have audio on Discord).
+- `register_global_commands`: Specifies whether global commands should be registered. Enabling this allows the application to respond to system-wide commands.
+- `crf`: Controls the Constant Rate Factor (CRF) value for video compression. Higher values result in lower video quality and smaller file sizes. (A sweet spot is between 26-32)
+
+To configure the application, modify the corresponding values in the `appsettings.json` file. Here are some example values:
+
+```json
+{
+  "ffmpeg_path": "ffmpeg",
+  "yt_dlp_path": "yt-dlp",
+  "ios_compatability" : true,
+  "register_global_commands": true,
+  "crf": 29
+}
+```
+
+Feel free to adjust these settings based on your requirements and environment.
 
 ## Running the bot
 - Install [FFmpeg](https://ffmpeg.org/) and [YT-DLP](https://github.com/yt-dlp/yt-dlp)

@@ -18,44 +18,40 @@ public sealed partial class TopLevelGroup
         [Choice("4x", 4)] double speed,
         string? url = null, IAttachment? attachment = null)
     {
-        await DeferAsync(options: _globals.ReqOptions).ConfigureAwait(false);
+        await DeferAsync(options: _globals.ReqOptions);
+        Uri.TryCreate(url, UriKind.Absolute, out var uri);
 
-        if (url is null && attachment?.Url is null)
+        if (uri is null && attachment?.Url is null)
         {
-            await FollowupAsync("You need to provide either a url or an attachment",
-                    ephemeral: true,
-                    options: _globals.ReqOptions)
-                .ConfigureAwait(false);
-            RateLimitService.Clear(RateLimitService.RateLimitType.User,
-                Context.Guild.Id,
-                MethodBase.GetCurrentMethod()!.Name);
+            const string message = "You need to provide either a url or an attachment";
+            await FollowupAsync(message, ephemeral: true, options: _globals.ReqOptions);
+            RateLimitService.Clear(RateLimitService.RateLimitType.User, Context.Guild.Id, MethodBase.GetCurrentMethod()!.Name);
             return;
         }
 
         if (url != null && attachment?.Url != null)
         {
-            await FollowupAsync("You can't provide both a url and an attachment",
-                ephemeral: true,
-                options: _globals.ReqOptions).ConfigureAwait(false);
-            RateLimitService.Clear(RateLimitService.RateLimitType.User,
-                Context.Guild.Id,
-                MethodBase.GetCurrentMethod()!.Name);
+            const string message = "You can't provide both a url and an attachment";
+            await FollowupAsync(message, ephemeral: true, options: _globals.ReqOptions);
+            RateLimitService.Clear(RateLimitService.RateLimitType.User, Context.Guild.Id, MethodBase.GetCurrentMethod()!.Name);
             return;
         }
 
-        using var lockAsync = await _asyncKeyedLocker.LockAsync(Key).ConfigureAwait(false);
+        if (attachment != null)
+        {
+            url = attachment.Url;
+            Uri.TryCreate(url, UriKind.Absolute, out uri);
+        }
 
+        using var lockAsync = await _asyncKeyedLocker.LockAsync(Key);
         var remainingCount = _asyncKeyedLocker.GetRemainingCount(Key);
         if (remainingCount > 1)
         {
-            await FollowupAsync(
-                    $"Your file is in position {_asyncKeyedLocker.GetRemainingCount(Key)} in the queue.",
-                    ephemeral: true,
-                    options: _globals.ReqOptions)
-                .ConfigureAwait(false);
+            var message = $"Your file is in position {_asyncKeyedLocker.GetRemainingCount(Key)} in the queue.";
+            await FollowupAsync(message, ephemeral: true, options: _globals.ReqOptions);
         }
 
-        var result = await _speedService.Speed(url ?? attachment?.Url, speed, Context).ConfigureAwait(false);
+        var result = await _speedService.Speed(uri!, speed, Context);
         if (result is null)
         {
             RateLimitService.Clear(RateLimitService.RateLimitType.User, Context.User.Id, MethodBase.GetCurrentMethod()!.Name);
@@ -63,6 +59,6 @@ public sealed partial class TopLevelGroup
         }
 
         var fileSize = new FileInfo(result).Length / _globals.BytesInMegabyte;
-        await _globals.UploadAsync(fileSize, result, Context).ConfigureAwait(false);
+        await _globals.UploadAsync(fileSize, result, Context);
     }
 }
