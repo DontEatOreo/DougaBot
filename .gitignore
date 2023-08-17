@@ -1,0 +1,26 @@
+# System Files
+**/.DS_Store
+
+# Project Files
+**.user
+**.suo
+**.cache
+**.csproj.user
+**.Development.json
+
+# Project Folders
+**/logs
+
+# IDEs
+**/.idea/
+**/.vscode/
+**/.history/
+**/.vs/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# Folders
+**/bin/
+**/obj/
