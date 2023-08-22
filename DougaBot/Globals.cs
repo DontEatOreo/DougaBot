@@ -37,8 +37,10 @@ public sealed class Globals
         {
             // preserve the status of existing APIs, default to false for new ones
             var status = currentStatuses
-                .TryGetValue(apiLink, out var currStatus) && currStatus; // by default it's false, unless they're is a match, and all initial statues are false
-            newStatuses[apiLink] = status;
+                .TryGetValue(apiLink, out var currStatus) 
+                         && currStatus; // by default it's false, unless they're is a match, and all initial statues are false
+            
+            newStatuses.TryAdd(apiLink, status);
         }
 
         ApiStatuses = newStatuses;
@@ -112,7 +114,7 @@ public sealed class Globals
                                                   $"*Please try again later.*" };
 
         // Mark API link as busy before making the request
-        ApiStatuses[selectedApiLink] = true;
+        ApiStatuses.TryUpdate(selectedApiLink, true, false);
 
         ApiResult result;
         try
@@ -122,7 +124,7 @@ public sealed class Globals
         finally
         {
             // Mark API link as not busy after getting the response
-            ApiStatuses[selectedApiLink] = false;
+            ApiStatuses.TryUpdate(selectedApiLink, false, true);
         }
 
         if (result.ResponseFile is null)
@@ -134,7 +136,12 @@ public sealed class Globals
          * Otherwise, we upload the file to the API and return the result.
          */
         var fileSize = result.ResponseFile.Length;
-        if (fileSize <= MaxSizes[premiumTier])
+        
+        _ = MaxSizes.TryGetValue(premiumTier, out var maxSize) 
+            ? maxSize 
+            : MaxSizes[PremiumTier.None];
+        
+        if (fileSize <= maxSize)
             return new ApiResult
             {
                 ResponseFile = result.ResponseFile,
