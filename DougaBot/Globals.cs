@@ -135,7 +135,7 @@ public sealed class Globals
          * then we return the result as it is.
          * Otherwise, we upload the file to the API and return the result.
          */
-        var fileSize = result.ResponseFile.Length;
+        var fileSize = result.ResponseFile.Length / 1024 / 1024; // in MB
         
         _ = MaxSizes.TryGetValue(premiumTier, out var maxSize) 
             ? maxSize 
