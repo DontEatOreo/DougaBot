@@ -13,7 +13,7 @@ using Serilog;
 
 var token = Environment.GetEnvironmentVariable("DOUGA_TOKEN");
 if (string.IsNullOrEmpty(token))
-    throw new ArgumentNullException(nameof(token), 
+    throw new ArgumentNullException(nameof(token),
         "DOUGA_TOKEN environment variable is not set. You must set this to the bot's token.");
 
 DiscordSocketConfig socketConfig = new()

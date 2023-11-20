@@ -59,7 +59,7 @@ public class InteractionHandler
 
         if (attachments.Any() is false)
             return Task.CompletedTask;
-        
+
         /*
          * We're purposefully using the NON-async state to NOT block the gateway.
          * Essentially, this runs ConvertWebm in the background and responds when it can.

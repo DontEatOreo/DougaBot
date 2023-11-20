@@ -54,7 +54,7 @@ public sealed class ApiClient
         };
         HttpRequestMessage request = new(HttpMethod.Get, endpointUrl) { Content = stringContent };
         request.Headers.Add("User-Agent", "DougaBot");
-        
+
         // Max Discord Time out is 15 minutes and we give ourselves 1 minute of buffer for uploading
         _client.Timeout = TimeSpan.FromMinutes(14);
 
@@ -81,5 +81,5 @@ public sealed class ApiClient
         };
     }
 
-    public sealed record ErrorResponse([property: Required] [ property: JsonPropertyName("error")] string Message);
+    public sealed record ErrorResponse([property: Required][property: JsonPropertyName("error")] string Message);
 }

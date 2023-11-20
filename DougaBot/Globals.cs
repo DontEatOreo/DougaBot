@@ -17,15 +17,15 @@ public sealed class Globals
     {
         _logger = logger;
         _apiClient = apiClient;
-        
+
         appSettings.OnChange((settings, _) =>
         {
             SetApiStatuses(settings);
         });
-    
+
         SetApiStatuses(appSettings.CurrentValue);
     }
-    
+
     private void SetApiStatuses(AppSettings settings)
     {
         // take a snapshot of the current statuses
@@ -37,9 +37,9 @@ public sealed class Globals
         {
             // preserve the status of existing APIs, default to false for new ones
             var status = currentStatuses
-                .TryGetValue(apiLink, out var currStatus) 
+                .TryGetValue(apiLink, out var currStatus)
                          && currStatus; // by default it's false, unless they're is a match, and all initial statues are false
-            
+
             newStatuses.TryAdd(apiLink, status);
         }
 
@@ -110,8 +110,11 @@ public sealed class Globals
         }
 
         if (selectedApiLink is null)
-            return new ApiResult { ErrorMessage = $"All APIs are currently busy...{Environment.NewLine}" +
-                                                  $"*Please try again later.*" };
+            return new ApiResult
+            {
+                ErrorMessage = $"All APIs are currently busy...{Environment.NewLine}" +
+                                                  $"*Please try again later.*"
+            };
 
         // Mark API link as busy before making the request
         ApiStatuses.TryUpdate(selectedApiLink, true, false);
@@ -136,11 +139,11 @@ public sealed class Globals
          * Otherwise, we upload the file to the API and return the result.
          */
         var fileSize = result.ResponseFile.Length / 1024 / 1024; // in MB
-        
-        _ = MaxSizes.TryGetValue(premiumTier, out var maxSize) 
-            ? maxSize 
+
+        _ = MaxSizes.TryGetValue(premiumTier, out var maxSize)
+            ? maxSize
             : MaxSizes[PremiumTier.None];
-        
+
         if (fileSize <= maxSize)
             return new ApiResult
             {
