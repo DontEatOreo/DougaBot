@@ -4,12 +4,4 @@ using JetBrains.Annotations;
 namespace DougaBot.Modules.TopLevel;
 
 [UsedImplicitly]
-public sealed partial class TopLevelGroup : InteractionModuleBase<SocketInteractionContext>
-{
-    private readonly Globals _globals;
-
-    public TopLevelGroup(Globals globals)
-    {
-        _globals = globals;
-    }
-}
+public sealed partial class TopLevelGroup(Globals globals) : InteractionModuleBase<SocketInteractionContext>;

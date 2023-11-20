@@ -6,18 +6,11 @@ using System.Text.Json.Serialization;
 
 namespace DougaBot.Clients;
 
-public sealed class ApiClient
+public sealed class ApiClient(HttpClient client)
 {
-    private readonly HttpClient _client;
-
     private static readonly Uri UploadApiLink = new("https://litterbox.catbox.moe/resources/internals/api.php");
 
     private const string ExpiryTime = "24h";
-
-    public ApiClient(HttpClient client)
-    {
-        _client = client;
-    }
 
     public async Task<ApiResult> UploadAsync(MemoryStream fileStream)
     {
@@ -29,7 +22,7 @@ public sealed class ApiClient
         };
         HttpRequestMessage request = new(HttpMethod.Post, UploadApiLink) { Content = mpContent };
 
-        var response = await _client.SendAsync(request);
+        var response = await client.SendAsync(request);
         if (response.IsSuccessStatusCode)
             return new ApiResult
             {
@@ -56,9 +49,9 @@ public sealed class ApiClient
         request.Headers.Add("User-Agent", "DougaBot");
 
         // Max Discord Time out is 15 minutes and we give ourselves 1 minute of buffer for uploading
-        _client.Timeout = TimeSpan.FromMinutes(14);
+        client.Timeout = TimeSpan.FromMinutes(14);
 
-        var response = await _client.SendAsync(request);
+        var response = await client.SendAsync(request);
         if (response.IsSuccessStatusCode is false)
         {
             var error = await response.Content.ReadAsStringAsync();

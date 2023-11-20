@@ -8,40 +8,28 @@ using Microsoft.Extensions.Options;
 
 namespace DougaBot;
 
-public class InteractionHandler
+public class InteractionHandler(
+    Globals globals,
+    DiscordSocketClient discordClient,
+    InteractionService commands,
+    IServiceProvider services,
+    IOptions<AppSettings> appSettings)
 {
     private const string WebMContentType = "video/webm";
 
-    private readonly Globals _globals;
-    private readonly DiscordSocketClient _discordClient;
-    private readonly InteractionService _commands;
-    private readonly IServiceProvider _services;
-    private readonly AppSettings _appSettings;
-
-    public InteractionHandler(Globals globals,
-        DiscordSocketClient discordClient,
-        InteractionService commands,
-        IServiceProvider services,
-        IOptions<AppSettings> appSettings)
-    {
-        _globals = globals;
-        _discordClient = discordClient;
-        _commands = commands;
-        _services = services;
-        _appSettings = appSettings.Value;
-    }
+    private readonly AppSettings _appSettings = appSettings.Value;
 
     public async Task InitializeAsync()
     {
         // Add the public modules that inherit InteractionModuleBase<T> to the InteractionService
-        await _commands.AddModulesAsync(Assembly.GetEntryAssembly(), _services);
+        await commands.AddModulesAsync(Assembly.GetEntryAssembly(), services);
 
         // Process the InteractionCreated payloads to execute Interactions commands
-        _discordClient.InteractionCreated += HandleInteraction;
-        _discordClient.MessageReceived += HandleMessage;
+        discordClient.InteractionCreated += HandleInteraction;
+        discordClient.MessageReceived += HandleMessage;
 
         // Process the command execution results
-        _commands.SlashCommandExecuted += SlashCommandExecuted;
+        commands.SlashCommandExecuted += SlashCommandExecuted;
     }
 
     private Task HandleMessage(SocketMessage message)
@@ -77,7 +65,7 @@ public class InteractionHandler
     {
         var tier = (message.Channel as IGuildChannel)?.Guild.PremiumTier ?? PremiumTier.None;
         var sizeMiB = attachment.Size / 1024 / 1024; // Formula: bytes (int32) / 1024 / 1024 = MiB
-        if (sizeMiB > _globals.MaxSizes[tier])
+        if (sizeMiB > globals.MaxSizes[tier])
             return;
 
         Uri uri = new(attachment.Url);
@@ -89,13 +77,13 @@ public class InteractionHandler
         };
 
         LogMessage webMConvertMessage = new(LogSeverity.Info, nameof(InteractionHandler), $"Converting {attachment.Filename} to MP4");
-        await _globals.LogAsync(webMConvertMessage);
+        await globals.LogAsync(webMConvertMessage);
 
-        var request = await _globals.HandleAsync(model, "compress", tier);
+        var request = await globals.HandleAsync(model, "compress", tier);
         if (request.ErrorMessage is not null)
         {
             LogMessage logMessage = new(LogSeverity.Error, nameof(InteractionHandler), request.ErrorMessage);
-            await _globals.LogAsync(logMessage);
+            await globals.LogAsync(logMessage);
             return;
         }
 
@@ -109,7 +97,7 @@ public class InteractionHandler
     private async Task SlashCommandExecuted(SlashCommandInfo arg1, IInteractionContext arg2, IResult arg3)
     {
         if (arg3 is { IsSuccess: false, Error: InteractionCommandError.UnmetPrecondition })
-            await arg2.Interaction.RespondAsync(arg3.ErrorReason, ephemeral: true, options: _globals.ReqOptions);
+            await arg2.Interaction.RespondAsync(arg3.ErrorReason, ephemeral: true, options: globals.ReqOptions);
     }
 
     private async Task HandleInteraction(SocketInteraction interaction)
@@ -117,13 +105,13 @@ public class InteractionHandler
         try
         {
             // Create an execution context that matches the generic type parameter of your InteractionModuleBase<T> modules
-            SocketInteractionContext ctx = new(_discordClient, interaction);
-            await _commands.ExecuteCommandAsync(ctx, _services);
+            SocketInteractionContext ctx = new(discordClient, interaction);
+            await commands.ExecuteCommandAsync(ctx, services);
         }
         catch (Exception ex)
         {
             LogMessage logMessage = new(LogSeverity.Error, nameof(InteractionHandler), ex.Message, ex);
-            await _globals.LogAsync(logMessage);
+            await globals.LogAsync(logMessage);
 
             // If a Slash Command execution fails it is most likely that the original interaction acknowledgement will persist.
             // It is a good idea to delete the original response,

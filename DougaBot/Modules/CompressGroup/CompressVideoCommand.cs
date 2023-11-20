@@ -14,12 +14,12 @@ public sealed partial class CompressGroup
         Uri? url = null,
         Resolution resolution = Resolution.None)
     {
-        await DeferAsync(options: _globals.ReqOptions);
+        await DeferAsync(options: globals.ReqOptions);
 
         if (attachment is not null && url is not null)
         {
             const string fullInput = "You can only either provide a video or a URL, not both.";
-            await FollowupAsync(fullInput, options: _globals.ReqOptions);
+            await FollowupAsync(fullInput, options: globals.ReqOptions);
             return;
         }
 
@@ -28,24 +28,24 @@ public sealed partial class CompressGroup
         if (uri is null)
         {
             const string emptyInput = "You must provide an attachment or a URL.";
-            await FollowupAsync(emptyInput, options: _globals.ReqOptions);
+            await FollowupAsync(emptyInput, options: globals.ReqOptions);
             return;
         }
 
         CompressModel model = new()
         {
             Uri = new Uri(uri),
-            Crf = _appSettings.CurrentValue.Crf
+            Crf = appSettings.CurrentValue.Crf
         };
         if (resolution is not Resolution.None)
             model.Resolution = resolution.ToString();
 
-        var request = await _globals.HandleAsync(model, "compress", Context.Guild.PremiumTier);
+        var request = await globals.HandleAsync(model, "compress", Context.Guild.PremiumTier);
         switch (request)
         {
             case { ErrorMessage: not null }:
                 {
-                    await FollowupAsync(request.ErrorMessage, options: _globals.ReqOptions);
+                    await FollowupAsync(request.ErrorMessage, options: globals.ReqOptions);
                     return;
                 }
             case { Uri: not null }:
@@ -53,7 +53,7 @@ public sealed partial class CompressGroup
                     var message = $"Your video has been compressed!{Environment.NewLine}" +
                                   $"[Click here to download]({request.Uri}){Environment.NewLine}" +
                                   $"The Download Link will expire in {request.Expiry}.";
-                    await FollowupAsync(message, options: _globals.ReqOptions);
+                    await FollowupAsync(message, options: globals.ReqOptions);
                     return;
                 }
         }
@@ -62,10 +62,10 @@ public sealed partial class CompressGroup
         await using var stream = request.ResponseFile;
         if (stream is null)
         {
-            await FollowupAsync(request.ErrorMessage, options: _globals.ReqOptions);
+            await FollowupAsync(request.ErrorMessage, options: globals.ReqOptions);
             return;
         }
 
-        await FollowupWithFileAsync(stream, fileName, options: _globals.ReqOptions);
+        await FollowupWithFileAsync(stream, fileName, options: globals.ReqOptions);
     }
 }

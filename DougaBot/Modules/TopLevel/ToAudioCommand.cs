@@ -14,16 +14,16 @@ public sealed partial class TopLevelGroup
         [Choice("M4A","aac")]
         string format = "mp3")
     {
-        await DeferAsync(options: _globals.ReqOptions);
+        await DeferAsync(options: globals.ReqOptions);
 
         ToAudioModel model = new() { Uri = uri, Format = format };
 
-        var request = await _globals.HandleAsync(model, "toaudio", Context.Guild.PremiumTier);
+        var request = await globals.HandleAsync(model, "toaudio", Context.Guild.PremiumTier);
         switch (request)
         {
             case { ErrorMessage: not null }:
                 {
-                    await FollowupAsync(request.ErrorMessage, options: _globals.ReqOptions);
+                    await FollowupAsync(request.ErrorMessage, options: globals.ReqOptions);
                     return;
                 }
             case { Uri: not null }:
@@ -31,7 +31,7 @@ public sealed partial class TopLevelGroup
                     var message = $"Your file has been converted to audio!{Environment.NewLine}" +
                                   $"[Click here to download]({request.Uri}){Environment.NewLine}" +
                                   $"The Download Link will expire in {request.Expiry}.";
-                    await FollowupAsync(message, options: _globals.ReqOptions);
+                    await FollowupAsync(message, options: globals.ReqOptions);
                     return;
                 }
         }
@@ -40,10 +40,10 @@ public sealed partial class TopLevelGroup
         await using var stream = request.ResponseFile;
         if (stream is null)
         {
-            await FollowupAsync(request.ErrorMessage, options: _globals.ReqOptions);
+            await FollowupAsync(request.ErrorMessage, options: globals.ReqOptions);
             return;
         }
 
-        await FollowupWithFileAsync(stream, fileName, options: _globals.ReqOptions);
+        await FollowupWithFileAsync(stream, fileName, options: globals.ReqOptions);
     }
 }

@@ -5,20 +5,15 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace DougaBot.RateLimit;
 
-public sealed class RateLimitAttribute : PreconditionAttribute
+public sealed class RateLimitAttribute(
+    int seconds = 5,
+    RateLimitService.RateLimitType type = RateLimitService.RateLimitType.User,
+    [CallerMemberName] string methodName = "")
+    : PreconditionAttribute
 {
-    private RateLimitService.RateLimitType Type { get; }
-    private int Seconds { get; }
-    private string MethodName { get; }
-
-    public RateLimitAttribute(int seconds = 5,
-        RateLimitService.RateLimitType type = RateLimitService.RateLimitType.User,
-        [CallerMemberName] string methodName = "")
-    {
-        Seconds = seconds;
-        Type = type;
-        MethodName = methodName;
-    }
+    private RateLimitService.RateLimitType Type { get; } = type;
+    private int Seconds { get; } = seconds;
+    private string MethodName { get; } = methodName;
 
     public override Task<PreconditionResult> CheckRequirementsAsync(IInteractionContext context,
         ICommandInfo commandInfo,

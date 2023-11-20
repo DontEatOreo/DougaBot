@@ -14,16 +14,16 @@ public sealed partial class DownloadGroup
     [SlashCommand("video", "Download Video")]
     public async Task Video(Uri url)
     {
-        await DeferAsync(options: _globals.ReqOptions);
+        await DeferAsync(options: globals.ReqOptions);
 
         DownloadModel model = new() { Uri = url };
 
-        var request = await _globals.HandleAsync(model, "download", Context.Guild.PremiumTier);
+        var request = await globals.HandleAsync(model, "download", Context.Guild.PremiumTier);
         switch (request)
         {
             case { ErrorMessage: not null }:
                 {
-                    await FollowupAsync(request.ErrorMessage, options: _globals.ReqOptions);
+                    await FollowupAsync(request.ErrorMessage, options: globals.ReqOptions);
                     return;
                 }
             case { Uri: not null }:
@@ -31,7 +31,7 @@ public sealed partial class DownloadGroup
                     var message = $"Your video has been downloaded!{Environment.NewLine}" +
                                   $"[Click here to download]({request.Uri}){Environment.NewLine}" +
                                   $"The Download Link will expire in {request.Expiry}.";
-                    await FollowupAsync(message, options: _globals.ReqOptions);
+                    await FollowupAsync(message, options: globals.ReqOptions);
                     return;
                 }
         }
@@ -39,6 +39,6 @@ public sealed partial class DownloadGroup
         var fileName = request.Headers?.ContentDisposition?.FileName;
         await using var stream = request.ResponseFile;
 
-        await FollowupWithFileAsync(stream, fileName, options: _globals.ReqOptions);
+        await FollowupWithFileAsync(stream, fileName, options: globals.ReqOptions);
     }
 }
